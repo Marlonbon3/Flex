@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100%;
   gap: 20px;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 /* Section Header */
@@ -19,7 +19,7 @@
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: #122033;
+  color: #0A1B5B;
   letter-spacing: -0.4px;
 }
 
@@ -51,29 +51,29 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
   letter-spacing: 0.2px;
 }
 
 .btn-primary {
-  background: #0b7be6;
+  background: #0A46FF;
   color: white;
 }
 
 .btn-primary:hover {
-  background: #0a63bf;
-  box-shadow: 0 4px 12px rgba(11, 123, 230, 0.3);
+  background: #0533CC;
+  box-shadow: 0 4px 12px rgba(10, 70, 255, 0.3);
 }
 
 .btn-secondary {
   background: white;
   border: 1px solid #e3eaf3;
-  color: #122033;
+  color: #0A1B5B;
 }
 
 .btn-secondary:hover {
   background: #f5f7fa;
-  border-color: #0b7be6;
+  border-color: #0A46FF;
 }
 
 .btn-icon {
@@ -108,7 +108,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .trailers-table tbody tr {
@@ -122,14 +122,14 @@
 
 .trailers-table tbody td {
   padding: 16px;
-  color: #122033;
+  color: #0A1B5B;
   font-weight: 400;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .trailer-no {
   font-weight: 600;
-  color: #0b7be6;
+  color: #0A46FF;
   letter-spacing: -0.1px;
 }
 
@@ -142,7 +142,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .status-badge.empty {
@@ -180,7 +180,7 @@
 }
 
 .action-btn:hover {
-  color: #0b7be6;
+  color: #0A46FF;
 }
 
 /* Table Footer */

@@ -45,13 +45,13 @@
   border: none;
   cursor: pointer;
   font-size: 24px;
-  color: #122033;
+  color: #0A1B5B;
   transition: all 0.2s ease;
   margin-top: 2px;
 }
 
 .back-btn:hover {
-  color: #0b7be6;
+  color: #0A46FF;
   transform: translateX(-4px);
 }
 
@@ -59,7 +59,7 @@
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: #122033;
+  color: #0A1B5B;
 }
 
 .header-content p {
@@ -98,7 +98,7 @@
 .form-group label {
   font-size: 12px;
   font-weight: 600;
-  color: #122033;
+  color: #0A1B5B;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -114,8 +114,8 @@
   border: 1px solid #dae2ea;
   border-radius: 6px;
   font-size: 13px;
-  font-family: 'Inter', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
-  color: #122033;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  color: #0A1B5B;
   background: white;
   transition: all 0.2s ease;
 }
@@ -129,8 +129,8 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #0b7be6;
-  box-shadow: 0 0 0 3px rgba(11, 123, 230, 0.1);
+  border-color: #0A46FF;
+  box-shadow: 0 0 0 3px rgba(10, 70, 255, 0.1);
 }
 
 .form-group textarea {
@@ -159,7 +159,7 @@
 }
 
 .file-input-wrapper:hover {
-  border-color: #0b7be6;
+  border-color: #0A46FF;
   background: #f0f5fc;
 }
 
@@ -182,7 +182,7 @@
 .link-text {
   font-size: 13px;
   font-weight: 500;
-  color: #0b7be6;
+  color: #0A46FF;
   text-decoration: underline;
 }
 
@@ -210,7 +210,7 @@
 
 .file-name {
   font-size: 13px;
-  color: #122033;
+  color: #0A1B5B;
   flex: 1;
   word-break: break-all;
 }
@@ -264,15 +264,15 @@
 }
 
 .btn-save {
-  background: #0b7be6;
+  background: #0A46FF;
   color: white;
-  border-color: #0b7be6;
+  border-color: #0A46FF;
 }
 
 .btn-save:hover {
-  background: #0a63bf;
-  border-color: #0a63bf;
-  box-shadow: 0 4px 12px rgba(11, 123, 230, 0.3);
+  background: #0533CC;
+  border-color: #0533CC;
+  box-shadow: 0 4px 12px rgba(10, 70, 255, 0.3);
 }
 
 .btn-save:active {

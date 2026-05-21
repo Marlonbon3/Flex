@@ -1,14 +1,18 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function Login() {
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
+  const navigate = useNavigate()
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // Aquí implementarás la lógica de autenticación
-    alert(`Usuario: ${user}\nContraseña: ${password}`)
+    if (user && password) {
+      // Aquí irá la lógica de autenticación real
+      navigate('/inicio')
+    }
   }
 
   return (

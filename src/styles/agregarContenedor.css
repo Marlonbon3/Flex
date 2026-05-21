@@ -351,6 +351,133 @@
   flex: 0 0 auto;
 }
 
+/* Signature Section */
+.signature-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.signature-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0A1B5B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 600 / 250;
+  border: 2px solid #dae2ea;
+  border-radius: 8px;
+  background: white;
+  cursor: crosshair;
+  touch-action: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.signature-canvas:hover {
+  border-color: #0A46FF;
+  box-shadow: 0 2px 8px rgba(10, 70, 255, 0.15);
+}
+
+.signature-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-clear-signature,
+.btn-save-signature {
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #dae2ea;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-clear-signature {
+  background: #f5f7fa;
+  color: #7b8aa3;
+  border-color: #dae2ea;
+}
+
+.btn-clear-signature:hover {
+  background: white;
+  border-color: #eb5064;
+  color: #eb5064;
+}
+
+.btn-save-signature {
+  background: #0A46FF;
+  color: white;
+  border-color: #0A46FF;
+}
+
+.btn-save-signature:hover {
+  background: #0533CC;
+  border-color: #0533CC;
+  box-shadow: 0 4px 12px rgba(10, 70, 255, 0.3);
+}
+
+.signature-saved {
+  text-align: center;
+  padding: 12px;
+  background: #f0f9f1;
+  border: 1px solid #a8d5a8;
+  border-radius: 6px;
+  color: #2d7a2d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.signature-saved p {
+  margin: 0;
+}
+
+/* Responsive - Signature Canvas Height */
+@media (max-width: 768px) {
+  .signature-canvas {
+    aspect-ratio: 600 / 200;
+  }
+
+  .signature-buttons {
+    gap: 8px;
+  }
+
+  .btn-clear-signature,
+  .btn-save-signature {
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .signature-canvas {
+    aspect-ratio: 600 / 150;
+  }
+
+  .signature-buttons {
+    flex-direction: column;
+  }
+
+  .btn-clear-signature,
+  .btn-save-signature {
+    width: 100%;
+    padding: 10px 12px;
+  }
+}
+
 /* Checkbox Groups */
 .checkbox-group-inline {
   display: flex;

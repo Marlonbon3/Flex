@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import '../styles/agregarContenedor.css';
 import { MdArrowBack } from 'react-icons/md';
 
 export default function AgregarContenedor({ onClose }) {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
+  const signatureCanvasRef = useRef(null);
 
   const [formData, setFormData] = useState({
     // Paso 1: Información Básica
@@ -29,6 +30,7 @@ export default function AgregarContenedor({ onClose }) {
     origen: '',
     empresas: [],
     responsableDescarga: '',
+    firmaResponsable: '', // Almacenar firma como data URL
     condiciones: {
       cond1: false,
       cond2: false,
@@ -73,6 +75,102 @@ export default function AgregarContenedor({ onClose }) {
   const removeAttachment = (index) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
+
+  const handleClearSignature = () => {
+    if (signatureCanvasRef.current) {
+      const context = signatureCanvasRef.current.getContext('2d');
+      context.clearRect(0, 0, signatureCanvasRef.current.width, signatureCanvasRef.current.height);
+    }
+  };
+
+  const handleSaveSignature = () => {
+    if (signatureCanvasRef.current) {
+      const signatureDataUrl = signatureCanvasRef.current.toDataURL('image/png');
+      setFormData(prev => ({
+        ...prev,
+        firmaResponsable: signatureDataUrl
+      }));
+    }
+  };
+
+  React.useEffect(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+
+    const context = canvas.getContext('2d');
+    
+    // Configuración del canvas
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.lineWidth = 2;
+    context.strokeStyle = '#0A1B5B';
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const handleStart = (e) => {
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      if (e.touches) {
+        lastX = (e.touches[0].clientX - rect.left) * scaleX;
+        lastY = (e.touches[0].clientY - rect.top) * scaleY;
+      } else {
+        lastX = (e.clientX - rect.left) * scaleX;
+        lastY = (e.clientY - rect.top) * scaleY;
+      }
+    };
+
+    const handleMove = (e) => {
+      if (!isDrawing) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      let x, y;
+      if (e.touches) {
+        x = (e.touches[0].clientX - rect.left) * scaleX;
+        y = (e.touches[0].clientY - rect.top) * scaleY;
+      } else {
+        x = (e.clientX - rect.left) * scaleX;
+        y = (e.clientY - rect.top) * scaleY;
+      }
+
+      context.beginPath();
+      context.moveTo(lastX, lastY);
+      context.lineTo(x, y);
+      context.stroke();
+
+      lastX = x;
+      lastY = y;
+    };
+
+    const handleEnd = () => {
+      isDrawing = false;
+    };
+
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('mouseout', handleEnd);
+    canvas.addEventListener('touchstart', handleStart, false);
+    canvas.addEventListener('touchmove', handleMove, false);
+    canvas.addEventListener('touchend', handleEnd, false);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleStart);
+      canvas.removeEventListener('mousemove', handleMove);
+      canvas.removeEventListener('mouseup', handleEnd);
+      canvas.removeEventListener('mouseout', handleEnd);
+      canvas.removeEventListener('touchstart', handleStart);
+      canvas.removeEventListener('touchmove', handleMove);
+      canvas.removeEventListener('touchend', handleEnd);
+    };
+  }, []);
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -669,20 +767,39 @@ export default function AgregarContenedor({ onClose }) {
                   </div>
                 </div>
 
-                {/* Responsable del Proceso de Descarga */}
+                {/* Responsable del Proceso de Descarga - Firma */}
                 <div className="inspection-section full-width">
-                  <h3 className="section-title">Responsables del Proceso de Descarga</h3>
+                  <h3 className="section-title">Firma del Responsable de Descarga</h3>
                   
-                  <div className="form-group">
-                    <label htmlFor="responsableDescarga">PERSONA QUE DESCARGÓ EL MATERIAL DEL TRAILER / NOMBRE COMPLETO</label>
-                    <input
-                      id="responsableDescarga"
-                      type="text"
-                      name="responsableDescarga"
-                      placeholder="Ingresa nombre completo"
-                      value={formData.responsableDescarga}
-                      onChange={handleInputChange}
+                  <div className="signature-container">
+                    <p className="signature-label">Firma (escribir con el dedo en la tableta)</p>
+                    <canvas
+                      ref={signatureCanvasRef}
+                      className="signature-canvas"
+                      width={600}
+                      height={250}
                     />
+                    <div className="signature-buttons">
+                      <button
+                        type="button"
+                        className="btn-clear-signature"
+                        onClick={handleClearSignature}
+                      >
+                        Limpiar Firma
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-save-signature"
+                        onClick={handleSaveSignature}
+                      >
+                        Guardar Firma
+                      </button>
+                    </div>
+                    {formData.firmaResponsable && (
+                      <div className="signature-saved">
+                        <p>✓ Firma guardada correctamente</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

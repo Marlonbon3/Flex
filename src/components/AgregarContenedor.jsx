@@ -6,6 +6,7 @@ export default function AgregarContenedor({ onClose }) {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
   const signatureCanvasRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     // Paso 1: Información Básica
@@ -97,47 +98,58 @@ export default function AgregarContenedor({ onClose }) {
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
 
-    const context = canvas.getContext('2d');
-    
-    // Configuración del canvas
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = 2;
-    context.strokeStyle = '#0A1B5B';
+    // Esperar a que el canvas esté renderizado antes de inicializar
+    const initCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = Math.max(250, rect.height) * window.devicePixelRatio;
+      
+      const context = canvas.getContext('2d');
+      context.scale(window.devicePixelRatio, window.devicePixelRatio);
+      
+      // Configuración del canvas
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.lineWidth = 2;
+      context.strokeStyle = '#0A1B5B';
+    };
 
+    initCanvas();
+
+    const context = canvas.getContext('2d');
     let isDrawing = false;
     let lastX = 0;
     let lastY = 0;
 
     const handleStart = (e) => {
+      e.preventDefault();
       isDrawing = true;
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
 
-      if (e.touches) {
-        lastX = (e.touches[0].clientX - rect.left) * scaleX;
-        lastY = (e.touches[0].clientY - rect.top) * scaleY;
-      } else {
-        lastX = (e.clientX - rect.left) * scaleX;
-        lastY = (e.clientY - rect.top) * scaleY;
+      if (e.touches && e.touches.length > 0) {
+        lastX = e.touches[0].clientX - rect.left;
+        lastY = e.touches[0].clientY - rect.top;
+      } else if (e.clientX !== undefined) {
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
       }
     };
 
     const handleMove = (e) => {
       if (!isDrawing) return;
+      e.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
       let x, y;
-      if (e.touches) {
-        x = (e.touches[0].clientX - rect.left) * scaleX;
-        y = (e.touches[0].clientY - rect.top) * scaleY;
+
+      if (e.touches && e.touches.length > 0) {
+        x = e.touches[0].clientX - rect.left;
+        y = e.touches[0].clientY - rect.top;
+      } else if (e.clientX !== undefined) {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
       } else {
-        x = (e.clientX - rect.left) * scaleX;
-        y = (e.clientY - rect.top) * scaleY;
+        return;
       }
 
       context.beginPath();
@@ -149,14 +161,15 @@ export default function AgregarContenedor({ onClose }) {
       lastY = y;
     };
 
-    const handleEnd = () => {
+    const handleEnd = (e) => {
+      e.preventDefault();
       isDrawing = false;
     };
 
-    canvas.addEventListener('mousedown', handleStart);
-    canvas.addEventListener('mousemove', handleMove);
-    canvas.addEventListener('mouseup', handleEnd);
-    canvas.addEventListener('mouseout', handleEnd);
+    canvas.addEventListener('mousedown', handleStart, false);
+    canvas.addEventListener('mousemove', handleMove, false);
+    canvas.addEventListener('mouseup', handleEnd, false);
+    canvas.addEventListener('mouseout', handleEnd, false);
     canvas.addEventListener('touchstart', handleStart, false);
     canvas.addEventListener('touchmove', handleMove, false);
     canvas.addEventListener('touchend', handleEnd, false);
@@ -773,12 +786,18 @@ export default function AgregarContenedor({ onClose }) {
                   
                   <div className="signature-container">
                     <p className="signature-label">Firma (escribir con el dedo en la tableta)</p>
-                    <canvas
-                      ref={signatureCanvasRef}
-                      className="signature-canvas"
-                      width={600}
-                      height={250}
-                    />
+                    <div style={{ width: '100%' }}>
+                      <canvas
+                        ref={signatureCanvasRef}
+                        className="signature-canvas"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          minHeight: '250px',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </div>
                     <div className="signature-buttons">
                       <button
                         type="button"
@@ -805,18 +824,75 @@ export default function AgregarContenedor({ onClose }) {
               </>
             )}
 
-            {/* PASO 3: Resumen/Confirmación */}
+            {/* PASO 3: Escaneo de Documentos */}
             {currentStep === 3 && (
               <>
                 <div className="step-title full-width">
-                  <h2>Paso 3 de 3: Confirmación</h2>
-                  <p>Revisa la información y completa el proceso</p>
+                  <h2>Paso 3 de 3: Escaneo de Documentos</h2>
+                  <p>Captura o sube documentos relacionados con el contenedor</p>
                 </div>
 
-                <div className="summary-container">
-                  <div className="summary-message">
-                    <h3>✓ Información Guardada</h3>
-                    <p>Todos los datos han sido registrados correctamente. Presiona <strong>"Completar"</strong> para finalizar el proceso de registro del contenedor.</p>
+                <div className="scan-section full-width">
+                  <div className="scan-buttons-container">
+                    <button
+                      type="button"
+                      className="btn-scan-camera"
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      <span className="scan-icon">📷</span>
+                      <span className="scan-text">Capturar con Cámara</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-scan-upload"
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      <span className="scan-icon">📁</span>
+                      <span className="scan-text">Subir Documento</span>
+                    </button>
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      multiple
+                      capture="environment"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+
+                  {attachments.length > 0 && (
+                    <div className="scanned-documents">
+                      <h3 className="section-title">Documentos Capturados</h3>
+                      <div className="documents-list">
+                        {attachments.map((file, index) => (
+                          <div key={index} className="document-item">
+                            <div className="document-info">
+                              <span className="document-icon">
+                                {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                              </span>
+                              <div className="document-details">
+                                <span className="document-name">{file.name}</span>
+                                <span className="document-size">
+                                  {(file.size / 1024).toFixed(2)} KB
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="remove-document"
+                              onClick={() => removeAttachment(index)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="scan-info">
+                    <p>📱 Optimizado para tabletas - toca los botones para capturar o subir documentos</p>
                   </div>
                 </div>
               </>
@@ -824,25 +900,20 @@ export default function AgregarContenedor({ onClose }) {
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn-cancel" onClick={onClose}>
+            <button type="button" className="btn-action btn-cancel" onClick={onClose}>
               Cancelar
             </button>
-            <button type="button" className="btn-save" onClick={handleSave}>
+            <button type="button" className="btn-action btn-save" onClick={handleSave}>
               Guardar
             </button>
             {currentStep > 1 && (
-              <button type="button" className="btn-previous" onClick={handlePrevious}>
+              <button type="button" className="btn-action btn-previous" onClick={handlePrevious}>
                 Atrás
               </button>
             )}
             {currentStep < totalSteps && (
-              <button type="button" className="btn-next" onClick={handleNext}>
+              <button type="button" className="btn-action btn-next" onClick={handleNext}>
                 Siguiente
-              </button>
-            )}
-            {currentStep === totalSteps && (
-              <button type="submit" className="btn-complete">
-                Completar
               </button>
             )}
           </div>

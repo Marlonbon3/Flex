@@ -2,8 +2,10 @@ import React, { useState } from 'react'
 import { MdAdd, MdDownload } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
+import AgregarContenedor from './AgregarContenedor'
 
 export default function Contenedores() {
+  const [showFormModal, setShowFormModal] = useState(false)
   const [trailers, setTrailers] = useState([
     {
       id: 1,
@@ -53,7 +55,7 @@ export default function Contenedores() {
   ])
 
   const handleAgregar = () => {
-    console.log('Agregar nuevo contenedor')
+    setShowFormModal(true)
   }
 
   const handleExportar = () => {
@@ -117,6 +119,8 @@ export default function Contenedores() {
       <div className="table-footer">
         <p>Mostrando los últimos 5 trailers activos en el flujo operativo.</p>
       </div>
+
+      {showFormModal && <AgregarContenedor onClose={() => setShowFormModal(false)} />}
     </div>
   )
 }

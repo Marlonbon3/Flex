@@ -5,6 +5,7 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules'
 import { MdHome, MdLocalShipping, MdFolder, MdBarChart, MdPeople } from 'react-icons/md'
 import { IoNotifications, IoSettingsSharp, IoHelpCircleSharp } from 'react-icons/io5'
 import { MdLogout, MdMenu, MdClose } from 'react-icons/md'
+import Contenedores from './Contenedores'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
@@ -123,7 +124,18 @@ export default function Home() {
             {menuOpen ? <MdClose /> : <MdMenu />}
           </button>
           <div className="header-left">
-            <h1>Flex - Sistema de Recibos</h1>
+            <div>
+              <h1>
+                {activeMenu === 'inicio' && 'Flex - Sistema de Recibos'}
+                {activeMenu === 'contenedores' && 'Trailers Flow Management'}
+                {activeMenu === 'archivo' && 'Archivo'}
+                {activeMenu === 'reportes' && 'Reportes'}
+                {activeMenu === 'turno' && 'Entrega de Turno'}
+              </h1>
+              {activeMenu === 'contenedores' && (
+                <p className="header-subtitle">Control y monitoreo del flujo operativo de trailers</p>
+              )}
+            </div>
           </div>
           <div className="header-right">
             <button className="icon-btn" title="Notificaciones">
@@ -140,79 +152,85 @@ export default function Home() {
         </header>
 
         <div className="content-area">
-          {/* Carrusel */}
-          <section className="carousel-section">
-            <Swiper
-              modules={[Navigation, Pagination, Autoplay]}
-              navigation
-              pagination={{ clickable: true }}
-              autoplay={{ delay: 5000 }}
-              loop
-              className="carousel"
-            >
-              {slides.map((slide, idx) => (
-                <SwiperSlide key={idx} className="carousel-slide">
-                  <img src={slide.image} alt={slide.title} className="slide-image" />
-                  <div className="slide-content">
-                    <h2>{slide.title}</h2>
-                    <p>{slide.description}</p>
+          {activeMenu === 'inicio' && (
+            <>
+              {/* Carrusel */}
+              <section className="carousel-section">
+                <Swiper
+                  modules={[Navigation, Pagination, Autoplay]}
+                  navigation
+                  pagination={{ clickable: true }}
+                  autoplay={{ delay: 5000 }}
+                  loop
+                  className="carousel"
+                >
+                  {slides.map((slide, idx) => (
+                    <SwiperSlide key={idx} className="carousel-slide">
+                      <img src={slide.image} alt={slide.title} className="slide-image" />
+                      <div className="slide-content">
+                        <h2>{slide.title}</h2>
+                        <p>{slide.description}</p>
+                      </div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </section>
+
+              {/* Misión y Visión */}
+              <section className="mission-vision">
+                <div className="mission-card">
+                  <div className="card-header">
+                    <h3>Misión</h3>
                   </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </section>
+                  <p>
+                    Aprovechar la experiencia, capacidades y el alcance global para crear productos excepcionales que tengan un impacto positivo en el mundo. A nivel local, esto incluye proporcionar un entorno seguro con oportunidades de crecimiento y desarrollo para sus colaboradores.
+                  </p>
+                </div>
 
-          {/* Misión y Visión */}
-          <section className="mission-vision">
-            <div className="mission-card">
-              <div className="card-header">
-                <h3>Misión</h3>
-              </div>
-              <p>
-                Aprovechar la experiencia, capacidades y el alcance global para crear productos excepcionales que tengan un impacto positivo en el mundo. A nivel local, esto incluye proporcionar un entorno seguro con oportunidades de crecimiento y desarrollo para sus colaboradores.
-              </p>
-            </div>
+                <div className="vision-card">
+                  <div className="card-header">
+                    <h3>Visión</h3>
+                  </div>
+                  <p>
+                    Ser el socio global más confiable en tecnología, cadena de suministro y soluciones avanzadas de manufactura. Todo esto integrando la inteligencia en el diseño y producción para permitir a las personas y empresas vivir de manera más inteligente ("Live Smarter").
+                  </p>
+                </div>
+              </section>
 
-            <div className="vision-card">
-              <div className="card-header">
-                <h3>Visión</h3>
-              </div>
-              <p>
-                Ser el socio global más confiable en tecnología, cadena de suministro y soluciones avanzadas de manufactura. Todo esto integrando la inteligencia en el diseño y producción para permitir a las personas y empresas vivir de manera más inteligente ("Live Smarter").
-              </p>
-            </div>
-          </section>
+              {/* Información de la Sede */}
+              <section className="company-info">
+                <h2>Sobre Nuestra Sede en Sonora</h2>
+                <div className="info-cards">
+                  <div className="info-card">
+                    <h4>Empresa</h4>
+                    <p>Flextronics Technologies</p>
+                  </div>
+                  <div className="info-card">
+                    <h4>Ubicación</h4>
+                    <p>San Luis Río Colorado (SLRC), Sonora, México</p>
+                  </div>
+                  <div className="info-card">
+                    <h4>Operaciones</h4>
+                    <p>Centro de Logística y Recuperación de Cadena de Suministro</p>
+                  </div>
+                  <div className="info-card">
+                    <h4>Especialidad</h4>
+                    <p>Manufactura, logística, gestión de recibos y distribución</p>
+                  </div>
+                  <div className="info-card">
+                    <h4>Tecnología</h4>
+                    <p>Soluciones digitales avanzadas para optimización operativa</p>
+                  </div>
+                  <div className="info-card">
+                    <h4>Presencia Regional</h4>
+                    <p>Lider en transformación digital logística en el noroeste de México</p>
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
 
-          {/* Información de la Sede */}
-          <section className="company-info">
-            <h2>Sobre Nuestra Sede en Sonora</h2>
-            <div className="info-cards">
-              <div className="info-card">
-                <h4>Empresa</h4>
-                <p>Flextronics Technologies</p>
-              </div>
-              <div className="info-card">
-                <h4>Ubicación</h4>
-                <p>San Luis Río Colorado (SLRC), Sonora, México</p>
-              </div>
-              <div className="info-card">
-                <h4>Operaciones</h4>
-                <p>Centro de Logística y Recuperación de Cadena de Suministro</p>
-              </div>
-              <div className="info-card">
-                <h4>Especialidad</h4>
-                <p>Manufactura, logística, gestión de recibos y distribución</p>
-              </div>
-              <div className="info-card">
-                <h4>Tecnología</h4>
-                <p>Soluciones digitales avanzadas para optimización operativa</p>
-              </div>
-              <div className="info-card">
-                <h4>Presencia Regional</h4>
-                <p>Lider en transformación digital logística en el noroeste de México</p>
-              </div>
-            </div>
-          </section>
+          {activeMenu === 'contenedores' && <Contenedores />}
         </div>
 
         {/* Footer */}

@@ -1,61 +1,102 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MdAdd, MdDownload } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
 import AgregarContenedor from './AgregarContenedor'
+import * as api from '../services/api'
 
 export default function Contenedores() {
   const [showFormModal, setShowFormModal] = useState(false)
-  const [trailers, setTrailers] = useState([
-    {
-      id: 1,
-      trailerNo: '2559IB',
-      tipo: 'SWIFT',
-      contenedor: 'R18',
-      puertoEntrada: 'Calexico, CA',
-      llegada: '5/14/2026 12:00',
-      status: 'EMPTY'
-    },
-    {
-      id: 2,
-      trailerNo: '12405MSM',
-      tipo: 'CHARGER',
-      contenedor: 'R19',
-      puertoEntrada: 'N/A',
-      llegada: '5/8/2026 12:00',
-      status: 'FINISHED'
-    },
-    {
-      id: 3,
-      trailerNo: '1415BVL',
-      tipo: 'CHARGER',
-      contenedor: 'R19',
-      puertoEntrada: 'Calexico, CA',
-      llegada: '5/11/2026 12:00',
-      status: 'EMPTY'
-    },
-    {
-      id: 4,
-      trailerNo: '1490MSM',
-      tipo: 'CHARGER',
-      contenedor: 'OK para expo',
-      puertoEntrada: 'San Luis, AZ',
-      llegada: '5/13/2026 12:00',
-      status: 'EMPTY'
-    },
-    {
-      id: 5,
-      trailerNo: '1505BVL',
-      tipo: 'SWIFT',
-      contenedor: 'R20',
-      puertoEntrada: 'Otay Mesa, CA',
-      llegada: '5/15/2026 09:00',
-      status: 'LOADED'
+  const [trailers, setTrailers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [contenedorSeleccionado, setContenedorSeleccionado] = useState(null)
+  const [menuAbierto, setMenuAbierto] = useState(null)
+
+  // Cargar contenedores de la BD
+  useEffect(() => {
+    cargarContenedores()
+  }, [])
+
+  const cargarContenedores = async () => {
+    try {
+      setLoading(true)
+      const contenedores = await api.obtenerTodosLosContenedores()
+      
+      // Filtrar solo contenedores NO archivados (Archivado === 0 o null)
+      const contenedoresActivos = contenedores.filter(c => c.Archivado !== 1)
+      
+      // Transformar datos de BD al formato de tabla
+      const trailersMapeados = contenedoresActivos.map((c, idx) => ({
+        id: c.ContenedorID || idx,
+        trailerNo: c.TrailerNo || 'N/A',
+        tipo: c.TrailerType || 'N/A',
+        contenedor: c.SeaContainerType || 'N/A',
+        puertoEntrada: c.PortOfEntry || 'N/A',
+        llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-ES') : 'N/A',
+        status: c.Estado || 'ACTIVE'
+      }))
+
+      setTrailers(trailersMapeados)
+    } catch (error) {
+      console.error('Error cargando contenedores:', error)
+      setTrailers([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
   const handleAgregar = () => {
+    setContenedorSeleccionado(null)
     setShowFormModal(true)
+  }
+
+  const handleCerrarModal = () => {
+    setShowFormModal(false)
+    setContenedorSeleccionado(null)
+    // Recargar contenedores después de cerrar el modal
+    cargarContenedores()
+  }
+
+  const handleClickFila = (trailer) => {
+    setContenedorSeleccionado(trailer)
+    setShowFormModal(true)
+    setMenuAbierto(null)
+  }
+
+  const handleArchivar = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('¿Estás seguro de que deseas archivar este contenedor?')) {
+      try {
+        const resultado = await api.archivarContenedor(id)
+        if (resultado.success) {
+          alert('✅ Contenedor archivado exitosamente')
+          cargarContenedores()
+          setMenuAbierto(null)
+        } else {
+          alert('❌ Error: ' + resultado.error)
+        }
+      } catch (error) {
+        alert('❌ Error archivando: ' + error.message)
+      }
+    }
+  }
+
+  const handleEliminar = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('⚠️ ¿Estás seguro? Esto eliminará el contenedor DE LA BD de forma permanente')) {
+      try {
+        const resultado = await api.eliminarContenedor(id)
+        if (resultado.success) {
+          alert('✅ Contenedor eliminado exitosamente')
+          cargarContenedores()
+          setMenuAbierto(null)
+        } else {
+          alert('❌ Error: ' + resultado.error)
+        }
+      } catch (error) {
+        alert('❌ Error eliminando: ' + error.message)
+      }
+    }
   }
 
   const handleExportar = () => {
@@ -93,34 +134,79 @@ export default function Contenedores() {
             </tr>
           </thead>
           <tbody>
-            {trailers.map((trailer) => (
-              <tr key={trailer.id}>
-                <td className="trailer-no">{trailer.trailerNo}</td>
-                <td>{trailer.tipo}</td>
-                <td>{trailer.contenedor}</td>
-                <td>{trailer.puertoEntrada}</td>
-                <td>{trailer.llegada}</td>
-                <td>
-                  <span className={`status-badge ${getStatusClass(trailer.status)}`}>
-                    {trailer.status}
-                  </span>
-                </td>
-                <td className="actions-cell">
-                  <button className="action-btn" title="Opciones">
-                    <HiEllipsisVertical />
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  Cargando contenedores... ⏳
                 </td>
               </tr>
-            ))}
+            ) : trailers.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  No hay contenedores registrados 📭
+                </td>
+              </tr>
+            ) : (
+              trailers.map((trailer) => (
+                <tr key={trailer.id} onClick={() => handleClickFila(trailer)} style={{ cursor: 'pointer' }}>
+                  <td className="trailer-no">{trailer.trailerNo}</td>
+                  <td>{trailer.tipo}</td>
+                  <td>{trailer.contenedor}</td>
+                  <td>{trailer.puertoEntrada}</td>
+                  <td>{trailer.llegada}</td>
+                  <td>
+                    <span className={`status-badge ${getStatusClass(trailer.status)}`}>
+                      {trailer.status}
+                    </span>
+                  </td>
+                  <td className="actions-cell">
+                    <div className="menu-container">
+                      <button 
+                        className="action-btn" 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMenuAbierto(menuAbierto === trailer.id ? null : trailer.id)
+                        }}
+                        title="Opciones"
+                      >
+                        <HiEllipsisVertical />
+                      </button>
+                      {menuAbierto === trailer.id && (
+                        <div className="dropdown-menu">
+                          <button 
+                            className="menu-option archivar"
+                            onClick={(e) => handleArchivar(trailer.id, e)}
+                          >
+                            📦 Archivar
+                          </button>
+                          <button 
+                            className="menu-option eliminar"
+                            onClick={(e) => handleEliminar(trailer.id, e)}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="table-footer">
-        <p>Mostrando los últimos 5 trailers activos en el flujo operativo.</p>
+        <p>Mostrando {trailers.length} trailers activos en el flujo operativo.</p>
       </div>
 
-      {showFormModal && <AgregarContenedor onClose={() => setShowFormModal(false)} />}
+      {showFormModal && (
+        <AgregarContenedor 
+          onClose={handleCerrarModal} 
+          contenedorID={contenedorSeleccionado?.id}
+          contenedorData={contenedorSeleccionado}
+        />
+      )}
     </div>
   )
 }

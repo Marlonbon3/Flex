@@ -1,7 +1,60 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import '../styles/archivo.css'
+import * as api from '../services/api'
 
 export default function Archivo() {
+  const [contenedores, setContenedores] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Cargar datos de la BD al montar el componente
+  useEffect(() => {
+    cargarContenedores();
+  }, []);
+
+  const cargarContenedores = async () => {
+    try {
+      setLoading(true);
+      // Cargar SOLO contenedores archivados de la BD
+      const todosLosContenedores = await api.obtenerTodosLosContenedores()
+      const contenedoresArchivados = todosLosContenedores.filter(c => c.Archivado === 1)
+      setContenedores(contenedoresArchivados)
+    } catch (error) {
+      console.error('Error cargando contenedores:', error);
+      setContenedores([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Agrupar contenedores por fecha
+  const agruparPorFecha = (contenedores) => {
+    const grupos = {};
+    contenedores.forEach(c => {
+      const fecha = new Date(c.FechaCreacion).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      if (!grupos[fecha]) {
+        grupos[fecha] = [];
+      }
+      grupos[fecha].push(c);
+    });
+    return grupos;
+  };
+
+  const filtrar = (contenedores) => {
+    if (!searchTerm) return contenedores;
+    return contenedores.filter(c => 
+      c.TrailerNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.SeaContainerType?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const gruposContenedores = agruparPorFecha(filtrar(contenedores));
+  const todosLosContenedores = Object.values(gruposContenedores).flat();
+
   return (
     <section className="archivo-section">
       <div className="archivo-header">
@@ -23,7 +76,13 @@ export default function Archivo() {
           <option>Otros</option>
         </select>
         <div className="search-box">
-          <input type="text" placeholder="Buscar documento, trailer, contenedor..." className="search-input" />
+          <input 
+            type="text" 
+            placeholder="Buscar documento, trailer, contenedor..." 
+            className="search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
           <button className="search-btn">🔍</button>
         </div>
         <button className="export-btn">📊 Exportar a Excel</button>
@@ -43,114 +102,54 @@ export default function Archivo() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td colSpan="7" className="date-group">📅 Hoy, 7 de mayo de 2026 (3)</td>
-            </tr>
-            <tr>
-              <td>04:10 PM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>TCNJI294580</td>
-              <td>R19</td>
-              <td>Calexico, CA</td>
-              <td>Juan Pérez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>03:22 PM</td>
-              <td>Nueva llegada de contenedor</td>
-              <td>1240SMSM</td>
-              <td>R19</td>
-              <td>N/A</td>
-              <td>Ana Gutiérrez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>02:06 PM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>1415BVL</td>
-              <td>R9</td>
-              <td>Calexico, CA</td>
-              <td>Luis Ramírez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td colSpan="7" className="date-group">📅 Ayer, 6 de mayo de 2026 (2)</td>
-            </tr>
-            <tr>
-              <td>05:15 PM</td>
-              <td>Nueva llegada de contenedor</td>
-              <td>1490SMSM</td>
-              <td>OK para expo</td>
-              <td>San Luis, AZ</td>
-              <td>Carlos López</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>11:47 AM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>1506BVL</td>
-              <td>R20</td>
-              <td>Otay Mesa, CA</td>
-              <td>María Fernanda</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td colSpan="7" className="date-group">📅 5 de mayo de 2026 (4)</td>
-            </tr>
-            <tr>
-              <td>04:32 PM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>2255R1B</td>
-              <td>R18</td>
-              <td>Calexico, CA</td>
-              <td>Juan Pérez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>03:11 PM</td>
-              <td>Nueva llegada de contenedor</td>
-              <td>1240SMSM</td>
-              <td>R19</td>
-              <td>N/A</td>
-              <td>Ana Gutiérrez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>12:09 PM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>1415BVL</td>
-              <td>R19</td>
-              <td>Calexico, CA</td>
-              <td>Luis Ramírez</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td>09:08 AM</td>
-              <td>Nueva llegada de contenedor</td>
-              <td>1606BVL</td>
-              <td>R20</td>
-              <td>Otay Mesa, CA</td>
-              <td>María Fernanda</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
-            <tr>
-              <td colSpan="7" className="date-group">📅 4 de mayo de 2026 (1)</td>
-            </tr>
-            <tr>
-              <td>05:45 PM</td>
-              <td>Inspección de Trailer / Contenedor Marítimo</td>
-              <td>1490SMSM</td>
-              <td>OK para expo</td>
-              <td>San Luis, AZ</td>
-              <td>Carlos López</td>
-              <td className="actions"><span className="icon">👁️</span> <span className="icon">🗑️</span></td>
-            </tr>
+            {loading ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  Cargando contenedores... ⏳
+                </td>
+              </tr>
+            ) : todosLosContenedores.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  No hay contenedores registrados 📭
+                </td>
+              </tr>
+            ) : (
+              Object.entries(gruposContenedores).map(([fecha, contenedores]) => (
+                <React.Fragment key={fecha}>
+                  <tr>
+                    <td colSpan="7" className="date-group">
+                      📅 {fecha} ({contenedores.length})
+                    </td>
+                  </tr>
+                  {contenedores.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        {new Date(c.FechaCreacion).toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td>Nueva llegada de contenedor</td>
+                      <td>{c.TrailerNo || 'N/A'}</td>
+                      <td>{c.SeaContainerType || 'N/A'}</td>
+                      <td>{c.PortOfEntry || 'N/A'}</td>
+                      <td>Usuario #{c.UsuarioCreadorID || 'N/A'}</td>
+                      <td className="actions">
+                        <span className="icon" title="Ver detalles">👁️</span>
+                        <span className="icon" title="Eliminar" style={{ cursor: 'pointer' }}>🗑️</span>
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="archivo-footer">
-        <p>Mostrando 1 a 10 de 30 documentos</p>
+        <p>Mostrando 1 a {todosLosContenedores.length} de {todosLosContenedores.length} documentos</p>
         <div className="pagination">
           <button className="pag-btn">←</button>
           <button className="pag-btn active">1</button>

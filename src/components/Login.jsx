@@ -1,17 +1,39 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import * as api from '../services/api'
 
 export default function Login() {
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (user && password) {
-      // Aquí irá la lógica de autenticación real
-      navigate('/inicio')
+    setError('')
+    
+    if (!user || !password) {
+      setError('Por favor ingresa usuario y contraseña')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await api.loginUsuario(user, password)
+      
+      if (response.success) {
+        // Login exitoso
+        navigate('/inicio')
+      } else {
+        setError(response.error || 'Credenciales inválidas')
+      }
+    } catch (err) {
+      setError('Error conectando con el servidor')
+      console.error('Error login:', err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -71,7 +93,15 @@ export default function Login() {
               </div>
             </label>
 
-            <button className="primary" type="submit">Iniciar sesión</button>
+            {error && <p className="error-message" style={{color: '#dc2626', marginBottom: '1rem'}}>{error}</p>}
+
+            <button 
+              className="primary" 
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            </button>
           </form>
 
           <p className="foot"><svg viewBox="0 0 24 24" className="lock-icon"><path fill="#9aa7bd" d="M12 1a4 4 0 0 0-4 4v3H6v11h12V8h-2V5a4 4 0 0 0-4-4zM9 8V5a3 3 0 0 1 6 0v3H9z"/></svg> Acceso exclusivo para usuarios autorizados</p>

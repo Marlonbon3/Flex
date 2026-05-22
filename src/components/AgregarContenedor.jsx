@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
 import '../styles/agregarContenedor.css';
 import { MdArrowBack } from 'react-icons/md';
+import * as api from '../services/api';
 
-export default function AgregarContenedor({ onClose }) {
-  const [currentStep, setCurrentStep] = useState(1);
+export default function AgregarContenedor({ onClose, contenedorID: initialContenedorID, contenedorData }) {
+  // Si hay un contenedor existente, empezar en Paso 2
+  const [currentStep, setCurrentStep] = useState(initialContenedorID ? 2 : 1);
   const totalSteps = 3;
   const signatureCanvasRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -59,6 +61,8 @@ export default function AgregarContenedor({ onClose }) {
   });
 
   const [attachments, setAttachments] = useState([]);
+  const [contenedorIDState, setContenedorIDState] = useState(initialContenedorID || null);
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -185,6 +189,20 @@ export default function AgregarContenedor({ onClose }) {
     };
   }, []);
 
+  // Pre-cargar datos si hay un contenedor existente
+  React.useEffect(() => {
+    if (initialContenedorID && contenedorData) {
+      setContenedorIDState(initialContenedorID);
+      setFormData(prev => ({
+        ...prev,
+        trailerNo: contenedorData.trailerNo || '',
+        trailerType: contenedorData.tipo || '',
+        seaContainerType: contenedorData.contenedor || '',
+        portOfEntry: contenedorData.puertoEntrada || ''
+      }));
+    }
+  }, [initialContenedorID, contenedorData]);
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -199,23 +217,85 @@ export default function AgregarContenedor({ onClose }) {
     }
   };
 
-  const handleSave = () => {
-    console.log('Guardando formulario en paso:', currentStep);
-    console.log('Datos:', formData);
-    console.log('Adjuntos:', attachments);
-    // Aquí irá la lógica para guardar en BD SQL Server
-    alert(`Formulario guardado en paso ${currentStep}. Datos guardados temporalmente.`);
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      // Obtener usuarioID del usuario autenticado
+      const usuarioActual = api.obtenerUsuarioActual();
+      const usuarioID = usuarioActual?.id || 1;
+
+      if (currentStep === 1) {
+        // PASO 1: Guardar o actualizar información básica del contenedor
+        let response;
+        
+        if (contenedorIDState) {
+          // Es edición - actualizar contenedor existente
+          response = await api.actualizarPaso1(contenedorIDState, formData, usuarioID);
+          if (response.success) {
+            alert('✅ Paso 1 actualizado exitosamente en BD');
+          } else {
+            alert('❌ Error al actualizar Paso 1: ' + api.procesarError(response));
+          }
+        } else {
+          // Es nuevo - crear nuevo contenedor
+          response = await api.guardarPaso1(formData, usuarioID);
+          if (response.id) {
+            setContenedorIDState(response.id);
+            alert('✅ Paso 1 guardado exitosamente en BD');
+          } else {
+            alert('❌ Error al guardar Paso 1: ' + api.procesarError(response));
+          }
+        }
+      } else if (currentStep === 2) {
+        // PASO 2: Guardar inspección + firma
+        if (!contenedorIDState) {
+          alert('⚠️ Primero debes guardar el Paso 1');
+          setLoading(false);
+          return;
+        }
+        const inspeccionData = {
+          ...formData,
+          contenedorID: contenedorIDState
+        };
+        const response = await api.guardarPaso2(inspeccionData, 1);
+        if (response.id) {
+          alert('✅ Paso 2 guardado exitosamente en BD');
+          // Actualizar estado del paso
+          await api.actualizarEstado(contenedorIDState, 2, true);
+        } else {
+          alert('❌ Error al guardar Paso 2');
+        }
+      } else if (currentStep === 3) {
+        // PASO 3: Guardar documentos
+        if (!contenedorIDState) {
+          alert('⚠️ Primero debes guardar el Paso 1');
+          setLoading(false);
+          return;
+        }
+        const response = await api.guardarPaso3(contenedorIDState, attachments, 1);
+        if (response.success) {
+          alert('✅ Paso 3 (Documentos) guardado exitosamente en BD');
+          // Actualizar estado del paso 3
+          await api.actualizarEstado(contenedorIDState, 3, true);
+        } else {
+          alert('❌ Error al guardar Paso 3');
+        }
+      }
+    } catch (error) {
+      alert('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (currentStep === totalSteps) {
-      console.log('Completando y guardando formulario completo');
-      console.log('Datos finales:', formData);
-      console.log('Adjuntos finales:', attachments);
-      // Aquí irá la lógica para guardar completo en BD
-      alert('Contenedor agregado exitosamente!');
-      onClose();
+      await handleSave();
+      // Después de guardar todo, cerrar el modal
+      setTimeout(() => {
+        onClose();
+      }, 500);
     }
   };
 
@@ -227,8 +307,10 @@ export default function AgregarContenedor({ onClose }) {
             <MdArrowBack />
           </button>
           <div className="header-content">
-            <h1>Nueva llegada de contenedor</h1>
-            <p>Registra la información de la llegada del contenedor al almacén.</p>
+            <h1>{contenedorIDState ? '📝 Continuar con los Pasos' : 'Nueva llegada de contenedor'}</h1>
+            <p>{contenedorIDState 
+              ? 'Completa los pasos 2 y 3 para finalizar el registro.' 
+              : 'Registra la información de la llegada del contenedor al almacén.'}</p>
           </div>
         </div>
 

@@ -253,17 +253,26 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
           setLoading(false);
           return;
         }
+        let horaLimpia = null;
+        if (formData.horaRegistro && formData.horaRegistro.trim() !== '') {
+          const match = formData.horaRegistro.match(/(\d{1,2}):(\d{2})/);
+          if (match) {
+            horaLimpia = `${String(parseInt(match[1])).padStart(2, '0')}:${match[2]}:00`;
+          }
+        }
+
         const inspeccionData = {
           ...formData,
+          horaRegistro: horaLimpia,
+          empresas: formData.empresas || [],
           contenedorID: contenedorIDState
         };
-        const response = await api.guardarPaso2(inspeccionData, 1);
-        if (response.id) {
+        const response = await api.guardarPaso2(inspeccionData, usuarioID);
+        if (response.success) {
           alert('✅ Paso 2 guardado exitosamente en BD');
-          // Actualizar estado del paso
           await api.actualizarEstado(contenedorIDState, 2, true);
         } else {
-          alert('❌ Error al guardar Paso 2');
+          alert('❌ Error al guardar Paso 2: ' + (response.error || 'Sin detalles'));
         }
       } else if (currentStep === 3) {
         // PASO 3: Guardar documentos

@@ -19,6 +19,26 @@ export const verificarConexion = async () => {
 };
 
 // ────────────────────────────────────────────────────────────────────
+// 1.5. CARGAR PASO 1 COMPLETO (para edición)
+// ────────────────────────────────────────────────────────────────────
+export const cargarPaso1 = async (paso1ID) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/contenedores/${paso1ID}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error cargando Paso 1');
+    }
+
+    console.log('📥 Datos Paso 1 cargados:', data.datos);
+    return data.datos;
+  } catch (error) {
+    console.error('❌ Error cargando Paso 1:', error);
+    return null;
+  }
+};
+
+// ────────────────────────────────────────────────────────────────────
 // 2. GUARDAR PASO 1 (Datos Contenedor)
 // ────────────────────────────────────────────────────────────────────
 export const guardarPaso1 = async (formData, usuarioID = 1) => {
@@ -27,6 +47,8 @@ export const guardarPaso1 = async (formData, usuarioID = 1) => {
       ...formData,
       usuarioID
     };
+
+    console.log('📤 Enviando Paso 1:', payload);
 
     const response = await fetch(`${API_BASE_URL}/contenedores`, {
       method: 'POST',
@@ -38,13 +60,15 @@ export const guardarPaso1 = async (formData, usuarioID = 1) => {
 
     const data = await response.json();
 
+    console.log('📥 Respuesta Paso 1:', data);
+
     if (!response.ok) {
-      throw new Error(data.error || 'Error guardando Paso 1');
+      throw new Error(data.details || data.error || 'Error guardando Paso 1');
     }
 
-    return data;
+    return { success: true, paso1ID: data.paso1ID };
   } catch (error) {
-    console.error('Error Paso 1:', error);
+    console.error('❌ Error Paso 1:', error);
     return { success: false, error: error.message };
   }
 };
@@ -73,7 +97,7 @@ export const guardarPaso2 = async (inspeccionData, usuarioID = 1) => {
       throw new Error(data.error || 'Error guardando Paso 2');
     }
 
-    return data;
+    return { success: true, paso2ID: data.paso2ID };
   } catch (error) {
     console.error('Error Paso 2:', error);
     return { success: false, error: error.message };

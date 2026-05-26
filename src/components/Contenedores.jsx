@@ -22,21 +22,26 @@ export default function Contenedores() {
       setLoading(true)
       const contenedores = await api.obtenerTodosLosContenedores()
       
-      // Filtrar solo contenedores NO archivados (Archivado === 0 o null)
-      const contenedoresActivos = contenedores.filter(c => c.Archivado !== 1)
+      console.log('✓ Contenedores cargados de la API:', contenedores.length)
+      
+      // Filtrar solo activos (Activo = 1)
+      const contenedoresActivos = contenedores.filter(c => c.Activo === 1)
       
       // Transformar datos de BD al formato de tabla
       const trailersMapeados = contenedoresActivos.map((c, idx) => ({
-        id: c.ContenedorID || idx,
+        paso1ID: c.Paso1ID,
         trailerNo: c.TrailerNo || 'N/A',
         tipo: c.TrailerType || 'N/A',
         contenedor: c.SeaContainerType || 'N/A',
         puertoEntrada: c.PortOfEntry || 'N/A',
         llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-ES') : 'N/A',
-        status: c.Estado || 'ACTIVE'
+        status: c.Estado || (c.Paso2Completado ? 'PASO2' : 'PASO1'),
+        paso2ID: c.Paso2ID,
+        paso3ID: c.Paso3ID
       }))
 
       setTrailers(trailersMapeados)
+      console.log('✓ Trailers activos:', trailersMapeados.length)
     } catch (error) {
       console.error('Error cargando contenedores:', error)
       setTrailers([])
@@ -203,7 +208,7 @@ export default function Contenedores() {
       {showFormModal && (
         <AgregarContenedor 
           onClose={handleCerrarModal} 
-          contenedorID={contenedorSeleccionado?.id}
+          initialPaso1ID={contenedorSeleccionado?.paso1ID}
           contenedorData={contenedorSeleccionado}
         />
       )}

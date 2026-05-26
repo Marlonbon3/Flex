@@ -1,5 +1,5 @@
 // ====================================================================
-// RUTAS API - GESTIÓN DE CONTENEDORES
+// RUTAS API - GESTIÓN DE CONTENEDORES (ACTUALIZADO)
 // Archivo: src/api/routes/contenedores.js
 // ====================================================================
 
@@ -21,7 +21,7 @@ router.post('/api/contenedores', async (req, res) => {
 
     const request = pool.request();
     
-    // Insertar en Contenedores
+    // Insertar en ContenedoresPaso1
     const result = await request
       .input('TrailerNo', sql.NVarChar, trailerNo)
       .input('TrailerType', sql.NVarChar, trailerType)
@@ -43,71 +43,87 @@ router.post('/api/contenedores', async (req, res) => {
       .input('PoNo', sql.NVarChar, poNo)
       .input('UsuarioCreadorID', sql.Int, usuarioID)
       .query(`
-        INSERT INTO Contenedores (
+        INSERT INTO ContenedoresPaso1 (
           TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry, Comments,
           QtyPallets, EmptyDate, SealSanLuis, DepartureDate, SealYuma, AgingA,
-          ActualDate, ItemType, Aging, BookingNo, DateExitPort, PoNo, UsuarioCreadorID
+          ActualDate, ItemType, Aging, BookingNo, DateExitPort, PoNo, UsuarioCreadorID, Activo
         )
         VALUES (
           @TrailerNo, @TrailerType, @SeaContainerType, @UsoEmbarques, @PortOfEntry, @Comments,
           @QtyPallets, @EmptyDate, @SealSanLuis, @DepartureDate, @SealYuma, @AgingA,
-          @ActualDate, @ItemType, @Aging, @BookingNo, @DateExitPort, @PoNo, @UsuarioCreadorID
+          @ActualDate, @ItemType, @Aging, @BookingNo, @DateExitPort, @PoNo, @UsuarioCreadorID, 1
         );
-        SELECT SCOPE_IDENTITY() as ContenedorID;
+        SELECT SCOPE_IDENTITY() as Paso1ID;
       `);
 
-    const contenedorID = result.recordset[0].ContenedorID;
-
-    // Registrar Paso 1 como completado
-    await pool.request()
-      .input('ContenedorID', sql.Int, contenedorID)
-      .input('NumeroPaso', sql.Int, 1)
-      .input('UsuarioID', sql.Int, usuarioID)
-      .input('DatosGuardados', sql.NVarChar(sql.MAX), JSON.stringify(req.body))
-      .query(`
-        INSERT INTO ContenedoresPasos (ContenedorID, NumeroPaso, Completado, DatosGuardados, UsuarioID)
-        VALUES (@ContenedorID, @NumeroPaso, 1, @DatosGuardados, @UsuarioID)
-      `);
+    const paso1ID = result.recordset[0].Paso1ID;
 
     res.json({
       success: true,
       mensaje: 'Contenedor guardado en Paso 1',
-      id: contenedorID
+      paso1ID: paso1ID
     });
 
   } catch (error) {
     console.error('Error Paso 1:', error);
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: error.originalError?.message || error.toString()
     });
   }
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 2. GUARDAR INSPECCIÓN (Paso 2)
+// 2. GUARDAR INSPECCIÓN (Paso 2) - ARREGLO DE HORA
 // ────────────────────────────────────────────────────────────────────
 router.post('/api/inspeccion', async (req, res) => {
   try {
     const {
-      contenedorID, cajaTrailer, placas, estado, fechaLlegada, turno,
+      paso1ID, cajaTrailer, placas, estado, fechaLlegada, turno,
       sellos, rampa, horaRegistro, totalPallets, longitudContenedor, origen,
       empresas, responsableDescarga, firmaResponsable, condiciones, usuarioID
     } = req.body;
 
+    // Validar que horaRegistro exista
+    if (!horaRegistro || horaRegistro.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'La hora de registro es requerida',
+        details: 'horaRegistro no puede estar vacío'
+      });
+    }
+
+    // Convertir horaRegistro al formato correcto (HH:MM:SS)
+    let horaFormato = null;
+    const partes = horaRegistro.split(':');
+    if (partes.length === 2) {
+      horaFormato = `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}:00`;
+    } else if (partes.length === 3) {
+      horaFormato = horaRegistro;
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de hora inválido. Use HH:MM o HH:MM:SS',
+        detalles: `Recibido: "${horaRegistro}"`
+      });
+    }
+
     const request = pool.request();
     
     const result = await request
-      .input('ContenedorID', sql.Int, contenedorID)
+      .input('Paso1ID', sql.Int, paso1ID)
       .input('CajaTrailer', sql.NVarChar, cajaTrailer)
       .input('Placas', sql.NVarChar, placas)
       .input('Estado', sql.NVarChar, estado)
-      .input('FechaLlegada', sql.Date, fechaLlegada)
+      .input('FechaLlegada', sql.Date, fechaLlegada || null)
       .input('Turno', sql.NVarChar, turno)
       .input('Sellos', sql.NVarChar, sellos)
       .input('Rampa', sql.NVarChar, rampa)
-      .input('HoraRegistro', sql.Time, horaRegistro && horaRegistro !== '' ? horaRegistro : null)
-      .input('TotalPallets', sql.Int, totalPallets)
+      .input('HoraRegistroVal', sql.NVarChar, horaFormato)
+      .input('TotalPallets', sql.Int, totalPallets || null)
       .input('LongitudContenedor', sql.NVarChar, longitudContenedor)
       .input('Origen', sql.NVarChar, origen)
       .input('Empresas', sql.NVarChar(sql.MAX), JSON.stringify(empresas || []))
@@ -123,44 +139,49 @@ router.post('/api/inspeccion', async (req, res) => {
       .input('Cond8', sql.Bit, condiciones?.cond8 ? 1 : 0)
       .input('UsuarioInspectorID', sql.Int, usuarioID)
       .query(`
-        INSERT INTO InspeccionesTrailer (
-          ContenedorID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
+        INSERT INTO ContenedoresPaso2 (
+          Paso1ID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
           Sellos, Rampa, HoraRegistro, TotalPallets, LongitudContenedor, Origen,
           Empresas, ResponsableDescarga, FirmaResponsable,
           Cond1, Cond2, Cond3, Cond4, Cond5, Cond6, Cond7, Cond8,
           UsuarioInspectorID
         )
         VALUES (
-          @ContenedorID, @CajaTrailer, @Placas, @Estado, @FechaLlegada, @Turno,
-          @Sellos, @Rampa, @HoraRegistro, @TotalPallets, @LongitudContenedor, @Origen,
+          @Paso1ID, @CajaTrailer, @Placas, @Estado, @FechaLlegada, @Turno,
+          @Sellos, @Rampa, CAST(@HoraRegistroVal AS TIME), @TotalPallets, @LongitudContenedor, @Origen,
           @Empresas, @ResponsableDescarga, @FirmaResponsable,
           @Cond1, @Cond2, @Cond3, @Cond4, @Cond5, @Cond6, @Cond7, @Cond8,
           @UsuarioInspectorID
         );
-        SELECT SCOPE_IDENTITY() as InspeccionID;
+        SELECT SCOPE_IDENTITY() as Paso2ID;
       `);
 
     res.json({
       success: true,
       mensaje: 'Inspección guardada en Paso 2',
-      inspeccionID: result.recordset[0].InspeccionID
+      paso2ID: result.recordset[0].Paso2ID,
+      debug: { horaOriginal: horaRegistro, horaFormato: horaFormato }
     });
 
   } catch (error) {
     console.error('Error Paso 2:', error);
+    console.error('HoraRegistro recibida:', req.body.horaRegistro);
+    console.error('Detalles del error:', error.message);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: error.originalError?.message || error.toString(),
+      receivedHora: req.body.horaRegistro
     });
   }
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 3. SUBIR DOCUMENTOS (Paso 3)
+// 3. SUBIR DOCUMENTOS (Paso 3) - Guardado en tabla Archivos
 // ────────────────────────────────────────────────────────────────────
 router.post('/api/documentos', async (req, res) => {
   try {
-    const { contenedorID, documentos, usuarioID } = req.body;
+    const { paso1ID, documentos, usuarioID } = req.body;
 
     if (!documentos || documentos.length === 0) {
       return res.json({
@@ -171,15 +192,16 @@ router.post('/api/documentos', async (req, res) => {
 
     for (const doc of documentos) {
       await pool.request()
-        .input('ContenedorID', sql.Int, contenedorID)
+        .input('Paso1ID', sql.Int, paso1ID)
         .input('NombreArchivo', sql.NVarChar, doc.nombre)
-        .input('TipoArchivo', sql.NVarChar, doc.tipo)
-        .input('TamañoKB', sql.Int, Math.ceil(doc.tamaño / 1024))
-        .input('RutaArchivo', sql.NVarChar, doc.ruta || '/uploads/' + doc.nombre)
-        .input('UsuarioSubidaID', sql.Int, usuarioID)
+        .input('TipoArchivo', sql.NVarChar, doc.tipo || 'documento')
+        .input('RutaArchivo', sql.NVarChar(sql.MAX), doc.ruta || '/uploads/' + doc.nombre)
+        .input('ContenidoBase64', sql.NVarChar(sql.MAX), doc.contenido || null)
+        .input('DescripcionArchivo', sql.NVarChar(sql.MAX), doc.descripcion || null)
+        .input('UsuarioId', sql.Int, usuarioID)
         .query(`
-          INSERT INTO Documentos (ContenedorID, NombreArchivo, TipoArchivo, TamañoKB, RutaArchivo, UsuarioSubidaID)
-          VALUES (@ContenedorID, @NombreArchivo, @TipoArchivo, @TamañoKB, @RutaArchivo, @UsuarioSubidaID)
+          INSERT INTO Archivos (Paso1ID, NombreArchivo, TipoArchivo, RutaArchivo, ContenidoBase64, DescripcionArchivo, UsuarioId)
+          VALUES (@Paso1ID, @NombreArchivo, @TipoArchivo, @RutaArchivo, @ContenidoBase64, @DescripcionArchivo, @UsuarioId)
         `);
     }
 
@@ -189,33 +211,54 @@ router.post('/api/documentos', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error Paso 3:', error);
+    console.error('Error guardando documentos:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: error.originalError?.message || error.toString()
     });
   }
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 4. OBTENER TODOS LOS CONTENEDORES
+// 4. OBTENER TODOS LOS CONTENEDORES (activos e inactivos)
 // ────────────────────────────────────────────────────────────────────
 router.get('/api/contenedores', async (req, res) => {
   try {
     const result = await pool.request()
       .query(`
-        SELECT c.*, u.NombreCompleto as CreadoPor,
-               COUNT(d.DocumentoID) as TotalDocumentos
-        FROM Contenedores c
-        LEFT JOIN Usuarios u ON c.UsuarioCreadorID = u.UsuarioID
-        LEFT JOIN Documentos d ON c.ContenedorID = d.ContenedorID
-        GROUP BY c.ContenedorID, c.TrailerNo, c.TrailerType, c.SeaContainerType,
-                 c.UsoEmbarques, c.PortOfEntry, c.Comments, c.QtyPallets, c.EmptyDate,
-                 c.SealSanLuis, c.DepartureDate, c.SealYuma, c.AgingA, c.ActualDate,
-                 c.ItemType, c.Aging, c.BookingNo, c.DateExitPort, c.PoNo,
-                 c.UsuarioCreadorID, c.FechaCreacion, c.Estado, c.Archivado, c.Paso2Completado, c.Paso3Completado,
-                 u.NombreCompleto
-        ORDER BY c.FechaCreacion DESC
+        SELECT 
+          p1.Paso1ID,
+          p1.TrailerNo,
+          p1.TrailerType,
+          p1.SeaContainerType,
+          p1.UsoEmbarques,
+          p1.PortOfEntry,
+          p1.Comments,
+          p1.QtyPallets,
+          p1.EmptyDate,
+          p1.SealSanLuis,
+          p1.DepartureDate,
+          p1.SealYuma,
+          p1.AgingA,
+          p1.ActualDate,
+          p1.ItemType,
+          p1.Aging,
+          p1.BookingNo,
+          p1.DateExitPort,
+          p1.PoNo,
+          p1.UsuarioCreadorID,
+          p1.FechaCreacion,
+          p1.Activo,
+          CASE WHEN p2.Paso2ID IS NOT NULL THEN 1 ELSE 0 END as Paso2Completado,
+          CASE WHEN p3.Paso3ID IS NOT NULL THEN 1 ELSE 0 END as Paso3Completado,
+          p2.Paso2ID,
+          p2.Estado,
+          p2.Turno
+        FROM ContenedoresPaso1 p1
+        LEFT JOIN ContenedoresPaso2 p2 ON p1.Paso1ID = p2.Paso1ID
+        LEFT JOIN ContenedoresPaso3 p3 ON p1.Paso1ID = p3.Paso1ID
+        ORDER BY p1.FechaCreacion DESC
       `);
 
     res.json({
@@ -227,7 +270,8 @@ router.get('/api/contenedores', async (req, res) => {
     console.error('Error GET todos los contenedores:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: error.originalError?.message || error.toString()
     });
   }
 });
@@ -240,22 +284,34 @@ router.get('/api/contenedores/:id', async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        SELECT c.*, u.NombreCompleto as CreadoPor,
-               i.InspeccionID, i.FirmaResponsable,
-               COUNT(d.DocumentoID) as TotalDocumentos
-        FROM Contenedores c
-        LEFT JOIN Usuarios u ON c.UsuarioCreadorID = u.UsuarioID
-        LEFT JOIN InspeccionesTrailer i ON c.ContenedorID = i.ContenedorID
-        LEFT JOIN Documentos d ON c.ContenedorID = d.ContenedorID
-        WHERE c.ContenedorID = @ContenedorID
-        GROUP BY c.ContenedorID, c.TrailerNo, c.TrailerType, c.SeaContainerType,
-                 c.UsoEmbarques, c.PortOfEntry, c.Comments, c.QtyPallets, c.EmptyDate,
-                 c.SealSanLuis, c.DepartureDate, c.SealYuma, c.AgingA, c.ActualDate,
-                 c.ItemType, c.Aging, c.BookingNo, c.DateExitPort, c.PoNo,
-                 c.UsuarioCreadorID, c.FechaCreacion, c.Estado, c.Archivado, c.Paso2Completado, c.Paso3Completado,
-                 u.NombreCompleto, i.InspeccionID, i.FirmaResponsable
+        SELECT 
+          p1.*,
+          p2.Paso2ID,
+          p2.CajaTrailer,
+          p2.Placas,
+          p2.Estado,
+          p2.FechaLlegada,
+          p2.Turno,
+          p2.Sellos,
+          p2.Rampa,
+          p2.HoraRegistro,
+          p2.TotalPallets,
+          p2.LongitudContenedor,
+          p2.Origen,
+          p2.Empresas,
+          p2.ResponsableDescarga,
+          p2.FirmaResponsable,
+          p3.Paso3ID,
+          p3.InformacionAdicional,
+          p3.DescargaCompleta,
+          p3.FechaDescarga,
+          p3.HoraDescarga
+        FROM ContenedoresPaso1 p1
+        LEFT JOIN ContenedoresPaso2 p2 ON p1.Paso1ID = p2.Paso1ID
+        LEFT JOIN ContenedoresPaso3 p3 ON p1.Paso1ID = p3.Paso1ID
+        WHERE p1.Paso1ID = @Paso1ID
       `);
 
     if (result.recordset.length === 0) {
@@ -280,18 +336,18 @@ router.get('/api/contenedores/:id', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 6. ARCHIVAR CONTENEDOR
+// 6. ARCHIVAR CONTENEDOR (desactivar)
 // ────────────────────────────────────────────────────────────────────
 router.patch('/api/contenedores/:id/archivar', async (req, res) => {
   try {
     const { id } = req.params;
 
     await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        UPDATE Contenedores
-        SET Archivado = 1
-        WHERE ContenedorID = @ContenedorID
+        UPDATE ContenedoresPaso1
+        SET Activo = 0
+        WHERE Paso1ID = @Paso1ID
       `);
 
     res.json({
@@ -309,42 +365,58 @@ router.patch('/api/contenedores/:id/archivar', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 7. ELIMINAR CONTENEDOR
+// 7. ELIMINAR CONTENEDOR (cascada)
 // ────────────────────────────────────────────────────────────────────
 router.delete('/api/contenedores/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Primero eliminar documentos relacionados
+    // Primero eliminar archivos relacionados
     await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        DELETE FROM Documentos
-        WHERE ContenedorID = @ContenedorID
+        DELETE FROM Archivos
+        WHERE Paso1ID = @Paso1ID
       `);
 
-    // Luego eliminar inspecciones
+    // Eliminar reportes
     await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        DELETE FROM InspeccionesTrailer
-        WHERE ContenedorID = @ContenedorID
+        DELETE FROM Reportes
+        WHERE Paso1ID = @Paso1ID
       `);
 
-    // Eliminar pasos
+    // Eliminar entregas de turno
     await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        DELETE FROM ContenedoresPasos
-        WHERE ContenedorID = @ContenedorID
+        DELETE FROM EntregaDeTurno
+        WHERE Paso1ID = @Paso1ID
       `);
 
-    // Finalmente eliminar contenedor
+    // Eliminar Paso 3
     await pool.request()
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .query(`
-        DELETE FROM Contenedores
-        WHERE ContenedorID = @ContenedorID
+        DELETE FROM ContenedoresPaso3
+        WHERE Paso1ID = @Paso1ID
+      `);
+
+    // Eliminar Paso 2
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .query(`
+        DELETE FROM ContenedoresPaso2
+        WHERE Paso1ID = @Paso1ID
+      `);
+
+    // Finalmente eliminar Paso 1
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .query(`
+        DELETE FROM ContenedoresPaso1
+        WHERE Paso1ID = @Paso1ID
       `);
 
     res.json({
@@ -362,40 +434,35 @@ router.delete('/api/contenedores/:id', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 8. ACTUALIZAR ESTADO (cuando se completan pasos)
+// 8. ACTUALIZAR ESTADO - Validar que pasos existan en BD
 // ────────────────────────────────────────────────────────────────────
 router.patch('/api/contenedores/:id/estado', async (req, res) => {
   try {
     const { id } = req.params;
     const { paso, completado } = req.body;
 
-    let query = `
-      UPDATE Contenedores
-      SET ${paso === 2 ? 'Paso2Completado' : 'Paso3Completado'} = @Completado
-      WHERE ContenedorID = @ContenedorID
-    `;
+    // En el nuevo esquema, el estado se determina por la existencia de registros en cada tabla
+    // Paso 2 completado = existe ContenedoresPaso2
+    // Paso 3 completado = existe ContenedoresPaso3
+    
+    // Solo respondemos que el paso está completado si existe el registro
+    const checkQuery = paso === 2 ? 
+      `SELECT Paso2ID FROM ContenedoresPaso2 WHERE Paso1ID = @Paso1ID` :
+      `SELECT Paso3ID FROM ContenedoresPaso3 WHERE Paso1ID = @Paso1ID`;
 
-    // Si ambos pasos están completos, actualizar estado general a COMPLETADO
-    if (completado) {
-      query = `
-        UPDATE Contenedores
-        SET ${paso === 2 ? 'Paso2Completado' : 'Paso3Completado'} = 1,
-            Estado = CASE 
-              WHEN (Paso2Completado = 1 AND Paso3Completado = 1) OR (${paso === 3 ? '1' : 'Paso3Completado'} = 1 AND Paso2Completado = 1) THEN 'COMPLETADO'
-              ELSE 'EN PROGRESO'
-            END
-        WHERE ContenedorID = @ContenedorID
-      `;
-    }
+    const result = await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .query(checkQuery);
 
-    await pool.request()
-      .input('ContenedorID', sql.Int, id)
-      .input('Completado', sql.Bit, completado ? 1 : 0)
-      .query(query);
+    const existe = result.recordset.length > 0;
 
     res.json({
       success: true,
-      mensaje: `Paso ${paso} actualizado exitosamente`
+      mensaje: `Paso ${paso} ${existe ? 'completado' : 'pendiente'}`,
+      estado: {
+        paso: paso,
+        completado: existe
+      }
     });
 
   } catch (error) {
@@ -422,7 +489,7 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
     const request = pool.request();
     
     const result = await request
-      .input('ContenedorID', sql.Int, id)
+      .input('Paso1ID', sql.Int, id)
       .input('TrailerNo', sql.NVarChar, trailerNo)
       .input('TrailerType', sql.NVarChar, trailerType)
       .input('SeaContainerType', sql.NVarChar, seaContainerType)
@@ -442,7 +509,7 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
       .input('DateExitPort', sql.Date, dateExitPort || null)
       .input('PoNo', sql.NVarChar, poNo)
       .query(`
-        UPDATE Contenedores SET
+        UPDATE ContenedoresPaso1 SET
           TrailerNo = @TrailerNo,
           TrailerType = @TrailerType,
           SeaContainerType = @SeaContainerType,
@@ -461,7 +528,7 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
           BookingNo = @BookingNo,
           DateExitPort = @DateExitPort,
           PoNo = @PoNo
-        WHERE ContenedorID = @ContenedorID
+        WHERE Paso1ID = @Paso1ID
       `);
 
     res.json({
@@ -474,7 +541,8 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
     console.error('Error actualizando Paso 1:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: error.originalError?.message || error.toString()
     });
   }
 });
@@ -573,6 +641,152 @@ router.post('/api/login', async (req, res) => {
 
   } catch (error) {
     console.error('Error en login:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// 3. GUARDAR INFORMACIÓN ADICIONAL (Paso 3)
+// ────────────────────────────────────────────────────────────────────
+router.post('/api/paso3', async (req, res) => {
+  try {
+    const {
+      paso1ID, paso2ID, informacionAdicional, descargaCompleta,
+      fechaDescarga, horaDescarga, usuarioResponsableID, observacionesFinales, usuarioID
+    } = req.body;
+
+    const request = pool.request();
+    
+    const result = await request
+      .input('Paso1ID', sql.Int, paso1ID)
+      .input('Paso2ID', sql.Int, paso2ID || null)
+      .input('InformacionAdicional', sql.NVarChar(sql.MAX), informacionAdicional)
+      .input('DescargaCompleta', sql.Bit, descargaCompleta ? 1 : 0)
+      .input('FechaDescarga', sql.Date, fechaDescarga || null)
+      .input('HoraDescarga', sql.Time, horaDescarga || null)
+      .input('UsuarioResponsableID', sql.Int, usuarioResponsableID)
+      .input('ObservacionesFinales', sql.NVarChar(sql.MAX), observacionesFinales)
+      .query(`
+        INSERT INTO ContenedoresPaso3 (
+          Paso1ID, Paso2ID, InformacionAdicional, DescargaCompleta,
+          FechaDescarga, HoraDescarga, UsuarioResponsableID, ObservacionesFinales
+        )
+        VALUES (
+          @Paso1ID, @Paso2ID, @InformacionAdicional, @DescargaCompleta,
+          @FechaDescarga, @HoraDescarga, @UsuarioResponsableID, @ObservacionesFinales
+        );
+        SELECT SCOPE_IDENTITY() as Paso3ID;
+      `);
+
+    res.json({
+      success: true,
+      mensaje: 'Información guardada en Paso 3',
+      paso3ID: result.recordset[0].Paso3ID
+    });
+
+  } catch (error) {
+    console.error('Error Paso 3:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// 4. GUARDAR ARCHIVOS
+// ────────────────────────────────────────────────────────────────────
+router.post('/api/archivos', async (req, res) => {
+  try {
+    const {
+      paso1ID, tipoArchivo, nombreArchivo, rutaArchivo, contenidoBase64,
+      descripcionArchivo, usuarioID
+    } = req.body;
+
+    const request = pool.request();
+    
+    const result = await request
+      .input('Paso1ID', sql.Int, paso1ID)
+      .input('TipoArchivo', sql.NVarChar, tipoArchivo)
+      .input('NombreArchivo', sql.NVarChar, nombreArchivo)
+      .input('RutaArchivo', sql.NVarChar(sql.MAX), rutaArchivo)
+      .input('ContenidoBase64', sql.NVarChar(sql.MAX), contenidoBase64)
+      .input('DescripcionArchivo', sql.NVarChar(sql.MAX), descripcionArchivo)
+      .input('UsuarioId', sql.Int, usuarioID)
+      .query(`
+        INSERT INTO Archivos (
+          Paso1ID, TipoArchivo, NombreArchivo, RutaArchivo, ContenidoBase64,
+          DescripcionArchivo, UsuarioId
+        )
+        VALUES (
+          @Paso1ID, @TipoArchivo, @NombreArchivo, @RutaArchivo, @ContenidoBase64,
+          @DescripcionArchivo, @UsuarioId
+        );
+        SELECT SCOPE_IDENTITY() as ArchivoID;
+      `);
+
+    res.json({
+      success: true,
+      mensaje: 'Archivo guardado',
+      archivoID: result.recordset[0].ArchivoID
+    });
+
+  } catch (error) {
+    console.error('Error al guardar archivo:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// 5. GUARDAR ENTREGA DE TURNO
+// ────────────────────────────────────────────────────────────────────
+router.post('/api/entrega-turno', async (req, res) => {
+  try {
+    const {
+      paso1ID, turnoOrigen, turnoDestino, horaEntrega, responsableEntrega,
+      responsableRecibe, estadoContenedor, firmaEntrega, firmaRecibe,
+      observaciones, usuarioID
+    } = req.body;
+
+    const request = pool.request();
+    
+    const result = await request
+      .input('Paso1ID', sql.Int, paso1ID)
+      .input('TurnoOrigen', sql.NVarChar, turnoOrigen)
+      .input('TurnoDestino', sql.NVarChar, turnoDestino)
+      .input('HoraEntrega', sql.Time, horaEntrega || null)
+      .input('ResponsableEntrega', sql.Int, responsableEntrega)
+      .input('ResponsableRecibe', sql.Int, responsableRecibe)
+      .input('EstadoContenedor', sql.NVarChar(sql.MAX), JSON.stringify(estadoContenedor || {}))
+      .input('FirmaEntrega', sql.NVarChar(sql.MAX), firmaEntrega)
+      .input('FirmaRecibe', sql.NVarChar(sql.MAX), firmaRecibe)
+      .input('Observaciones', sql.NVarChar(sql.MAX), observaciones)
+      .query(`
+        INSERT INTO EntregaDeTurno (
+          Paso1ID, TurnoOrigen, TurnoDestino, HoraEntrega, ResponsableEntrega,
+          ResponsableRecibe, EstadoContenedor, FirmaEntrega, FirmaRecibe, Observaciones
+        )
+        VALUES (
+          @Paso1ID, @TurnoOrigen, @TurnoDestino, @HoraEntrega, @ResponsableEntrega,
+          @ResponsableRecibe, @EstadoContenedor, @FirmaEntrega, @FirmaRecibe, @Observaciones
+        );
+        SELECT SCOPE_IDENTITY() as EntregaID;
+      `);
+
+    res.json({
+      success: true,
+      mensaje: 'Entrega de turno registrada',
+      entregaID: result.recordset[0].EntregaID
+    });
+
+  } catch (error) {
+    console.error('Error al registrar entrega:', error);
     res.status(500).json({
       success: false,
       error: error.message

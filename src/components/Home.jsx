@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination, Autoplay } from 'swiper/modules'
 import { MdHome, MdLocalShipping, MdFolder, MdBarChart, MdPeople } from 'react-icons/md'
@@ -12,10 +12,14 @@ import 'swiper/css/navigation'
 import 'swiper/css/pagination'
 import '../styles/home.css'
 
-export default function Home() {
+export default function Home({ tab = 'inicio' }) {
   const navigate = useNavigate()
-  const [activeMenu, setActiveMenu] = useState('inicio')
+  const [activeMenu, setActiveMenu] = useState(tab)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setActiveMenu(tab)
+  }, [tab])
 
   const handleLogout = () => {
     navigate('/')
@@ -27,6 +31,12 @@ export default function Home() {
 
   const closeMenu = () => {
     setMenuOpen(false)
+  }
+
+  const cambiarTab = (nuevoTab) => {
+    setActiveMenu(nuevoTab)
+    navigate(`/${nuevoTab === 'inicio' ? 'inicio' : nuevoTab}`)
+    closeMenu()
   }
 
   const slides = [
@@ -58,50 +68,35 @@ export default function Home() {
         <nav className="sidebar-menu">
           <button
             className={`menu-item ${activeMenu === 'inicio' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveMenu('inicio')
-              closeMenu()
-            }}
+            onClick={() => cambiarTab('inicio')}
           >
             <MdHome className="menu-icon" />
             <span className="menu-text">Inicio</span>
           </button>
           <button
             className={`menu-item ${activeMenu === 'contenedores' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveMenu('contenedores')
-              closeMenu()
-            }}
+            onClick={() => cambiarTab('contenedores')}
           >
             <MdLocalShipping className="menu-icon" />
             <span className="menu-text">Contenedores</span>
           </button>
           <button
             className={`menu-item ${activeMenu === 'archivo' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveMenu('archivo')
-              closeMenu()
-            }}
+            onClick={() => cambiarTab('archivo')}
           >
             <MdFolder className="menu-icon" />
             <span className="menu-text">Archivo</span>
           </button>
           <button
             className={`menu-item ${activeMenu === 'reportes' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveMenu('reportes')
-              closeMenu()
-            }}
+            onClick={() => cambiarTab('reportes')}
           >
             <MdBarChart className="menu-icon" />
             <span className="menu-text">Reportes</span>
           </button>
           <button
             className={`menu-item ${activeMenu === 'turno' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveMenu('turno')
-              closeMenu()
-            }}
+            onClick={() => cambiarTab('turno')}
           >
             <MdPeople className="menu-icon" />
             <span className="menu-text">Entrega de turno</span>

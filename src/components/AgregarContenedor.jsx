@@ -3,12 +3,11 @@ import '../styles/agregarContenedor.css';
 import { MdArrowBack } from 'react-icons/md';
 import * as api from '../services/api';
 
-export default function AgregarContenedor({ onClose, contenedorID: initialContenedorID, contenedorData }) {
-  // Si hay un contenedor existente, empezar en Paso 2
-  const [currentStep, setCurrentStep] = useState(initialContenedorID ? 2 : 1);
+export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorData }) {
+  // Iniciar en Paso 1 por defecto, será ajustado en el useEffect
+  const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
-  const signatureCanvasRef = useRef(null);
-  const cameraInputRef = useRef(null);
+  const [paso1ID, setPaso1ID] = useState(initialPaso1ID || null);
 
   const [formData, setFormData] = useState({
     // Paso 1: Información Básica
@@ -61,8 +60,10 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
   });
 
   const [attachments, setAttachments] = useState([]);
-  const [contenedorIDState, setContenedorIDState] = useState(initialContenedorID || null);
+  const [paso1IDState, setPaso1IDState] = useState(initialPaso1ID || null);
   const [loading, setLoading] = useState(false);
+  const signatureCanvasRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -191,17 +192,72 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
 
   // Pre-cargar datos si hay un contenedor existente
   React.useEffect(() => {
-    if (initialContenedorID && contenedorData) {
-      setContenedorIDState(initialContenedorID);
-      setFormData(prev => ({
-        ...prev,
-        trailerNo: contenedorData.trailerNo || '',
-        trailerType: contenedorData.tipo || '',
-        seaContainerType: contenedorData.contenedor || '',
-        portOfEntry: contenedorData.puertoEntrada || ''
-      }));
-    }
-  }, [initialContenedorID, contenedorData]);
+    const cargarDatos = async () => {
+      if (!initialPaso1ID) return;
+
+      try {
+        setLoading(true);
+        const datosCompletos = await api.cargarPaso1(initialPaso1ID);
+        
+        if (datosCompletos) {
+          setPaso1IDState(initialPaso1ID);
+          
+          // Cargar datos del Paso 1
+          setFormData(prev => ({
+            ...prev,
+            // Paso 1
+            trailerNo: datosCompletos.TrailerNo || '',
+            trailerType: datosCompletos.TrailerType || '',
+            seaContainerType: datosCompletos.SeaContainerType || '',
+            usoEmbarques: datosCompletos.UsoEmbarques || '',
+            portOfEntry: datosCompletos.PortOfEntry || '',
+            comments: datosCompletos.Comments || '',
+            qtyPallets: datosCompletos.QtyPallets || '',
+            emptyDate: datosCompletos.EmptyDate ? new Date(datosCompletos.EmptyDate).toISOString().split('T')[0] : '',
+            sealSanLuis: datosCompletos.SealSanLuis || '',
+            departureDate: datosCompletos.DepartureDate ? new Date(datosCompletos.DepartureDate).toISOString().split('T')[0] : '',
+            sealYuma: datosCompletos.SealYuma || '',
+            agingA: datosCompletos.AgingA || '',
+            actualDate: datosCompletos.ActualDate ? new Date(datosCompletos.ActualDate).toISOString().split('T')[0] : '',
+            itemType: datosCompletos.ItemType || '',
+            aging: datosCompletos.Aging || '',
+            bookingNo: datosCompletos.BookingNo || '',
+            dateExitPort: datosCompletos.DateExitPort ? new Date(datosCompletos.DateExitPort).toISOString().split('T')[0] : '',
+            poNo: datosCompletos.PoNo || '',
+            
+            // Paso 2 si existe
+            cajaTrailer: datosCompletos.CajaTrailer || '',
+            placas: datosCompletos.Placas || '',
+            estado: datosCompletos.Estado || '',
+            fechaLlegada: datosCompletos.FechaLlegada ? new Date(datosCompletos.FechaLlegada).toISOString().split('T')[0] : '',
+            turno: datosCompletos.Turno || '1er turno',
+            sellos: datosCompletos.Sellos || '',
+            rampa: datosCompletos.Rampa || '',
+            horaRegistro: datosCompletos.HoraRegistro || '',
+            totalPallets: datosCompletos.TotalPallets || '',
+            longitudContenedor: datosCompletos.LongitudContenedor || '',
+            origen: datosCompletos.Origen || '',
+            empresas: datosCompletos.Empresas ? JSON.parse(datosCompletos.Empresas) : [],
+            responsableDescarga: datosCompletos.ResponsableDescarga || '',
+            firmaResponsable: datosCompletos.FirmaResponsable || ''
+          }));
+          
+          // Si Paso 2 existe, ir directo a Paso 2
+          if (datosCompletos.Paso2ID) {
+            setCurrentStep(2);
+          } else {
+            setCurrentStep(1);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDatos();
+  }, [initialPaso1ID]);
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -228,9 +284,9 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
         // PASO 1: Guardar o actualizar información básica del contenedor
         let response;
         
-        if (contenedorIDState) {
+        if (paso1IDState) {
           // Es edición - actualizar contenedor existente
-          response = await api.actualizarPaso1(contenedorIDState, formData, usuarioID);
+          response = await api.actualizarPaso1(paso1IDState, formData, usuarioID);
           if (response.success) {
             alert('✅ Paso 1 actualizado exitosamente en BD');
           } else {
@@ -239,8 +295,8 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
         } else {
           // Es nuevo - crear nuevo contenedor
           response = await api.guardarPaso1(formData, usuarioID);
-          if (response.id) {
-            setContenedorIDState(response.id);
+          if (response.success && response.paso1ID) {
+            setPaso1IDState(response.paso1ID);
             alert('✅ Paso 1 guardado exitosamente en BD');
           } else {
             alert('❌ Error al guardar Paso 1: ' + api.procesarError(response));
@@ -248,7 +304,7 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
         }
       } else if (currentStep === 2) {
         // PASO 2: Guardar inspección + firma
-        if (!contenedorIDState) {
+        if (!paso1IDState) {
           alert('⚠️ Primero debes guardar el Paso 1');
           setLoading(false);
           return;
@@ -265,27 +321,27 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
           ...formData,
           horaRegistro: horaLimpia,
           empresas: formData.empresas || [],
-          contenedorID: contenedorIDState
+          paso1ID: paso1IDState
         };
         const response = await api.guardarPaso2(inspeccionData, usuarioID);
         if (response.success) {
           alert('✅ Paso 2 guardado exitosamente en BD');
-          await api.actualizarEstado(contenedorIDState, 2, true);
+          await api.actualizarEstado(paso1IDState, 2, true);
         } else {
           alert('❌ Error al guardar Paso 2: ' + (response.error || 'Sin detalles'));
         }
       } else if (currentStep === 3) {
         // PASO 3: Guardar documentos
-        if (!contenedorIDState) {
+        if (!paso1IDState) {
           alert('⚠️ Primero debes guardar el Paso 1');
           setLoading(false);
           return;
         }
-        const response = await api.guardarPaso3(contenedorIDState, attachments, 1);
+        const response = await api.guardarPaso3(paso1IDState, attachments, 1);
         if (response.success) {
           alert('✅ Paso 3 (Documentos) guardado exitosamente en BD');
           // Actualizar estado del paso 3
-          await api.actualizarEstado(contenedorIDState, 3, true);
+          await api.actualizarEstado(paso1IDState, 3, true);
         } else {
           alert('❌ Error al guardar Paso 3');
         }
@@ -316,8 +372,8 @@ export default function AgregarContenedor({ onClose, contenedorID: initialConten
             <MdArrowBack />
           </button>
           <div className="header-content">
-            <h1>{contenedorIDState ? '📝 Continuar con los Pasos' : 'Nueva llegada de contenedor'}</h1>
-            <p>{contenedorIDState 
+            <h1>{paso1IDState ? '📝 Continuar con los Pasos' : 'Nueva llegada de contenedor'}</h1>
+            <p>{paso1IDState 
               ? 'Completa los pasos 2 y 3 para finalizar el registro.' 
               : 'Registra la información de la llegada del contenedor al almacén.'}</p>
           </div>

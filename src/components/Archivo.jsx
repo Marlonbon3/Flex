@@ -15,12 +15,13 @@ export default function Archivo() {
   const cargarContenedores = async () => {
     try {
       setLoading(true);
-      // Cargar SOLO contenedores archivados de la BD
+      // Cargar SOLO contenedores inactivos/archivados (Activo = 0)
       const todosLosContenedores = await api.obtenerTodosLosContenedores()
-      const contenedoresArchivados = todosLosContenedores.filter(c => c.Archivado === 1)
+      const contenedoresArchivados = todosLosContenedores.filter(c => c.Activo === 0)
       setContenedores(contenedoresArchivados)
+      console.log('✓ Archivados cargados:', contenedoresArchivados.length)
     } catch (error) {
-      console.error('Error cargando contenedores:', error);
+      console.error('Error cargando contenedores archivados:', error);
       setContenedores([]);
     } finally {
       setLoading(false);

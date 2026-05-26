@@ -87,28 +87,30 @@ router.post('/api/inspeccion', async (req, res) => {
       empresas, responsableDescarga, firmaResponsable, condiciones, usuarioID
     } = req.body;
 
-    // Validar que horaRegistro exista
-    if (!horaRegistro || horaRegistro.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        error: 'La hora de registro es requerida',
-        details: 'horaRegistro no puede estar vacío'
-      });
-    }
-
     // Convertir horaRegistro al formato correcto (HH:MM:SS)
+    // Si no proporciona hora, usar la hora actual del servidor
     let horaFormato = null;
-    const partes = horaRegistro.split(':');
-    if (partes.length === 2) {
-      horaFormato = `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}:00`;
-    } else if (partes.length === 3) {
-      horaFormato = horaRegistro;
+    
+    if (horaRegistro && horaRegistro.trim() !== '') {
+      const partes = horaRegistro.split(':');
+      if (partes.length === 2) {
+        horaFormato = `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}:00`;
+      } else if (partes.length === 3) {
+        horaFormato = horaRegistro;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Formato de hora inválido. Use HH:MM o HH:MM:SS',
+          detalles: `Recibido: "${horaRegistro}"`
+        });
+      }
     } else {
-      return res.status(400).json({
-        success: false,
-        error: 'Formato de hora inválido. Use HH:MM o HH:MM:SS',
-        detalles: `Recibido: "${horaRegistro}"`
-      });
+      // Usar hora actual del servidor si no se proporciona
+      const ahora = new Date();
+      const horas = String(ahora.getHours()).padStart(2, '0');
+      const minutos = String(ahora.getMinutes()).padStart(2, '0');
+      const segundos = String(ahora.getSeconds()).padStart(2, '0');
+      horaFormato = `${horas}:${minutos}:${segundos}`;
     }
 
     const request = pool.request();
@@ -177,41 +179,117 @@ router.post('/api/inspeccion', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 3. SUBIR DOCUMENTOS (Paso 3) - Guardado en tabla Archivos
+// 3. SUBIR DOCUMENTOS (Paso 3) - Guardado en tabla Archivos + AUTO-COMPLETAR
 // ────────────────────────────────────────────────────────────────────
 router.post('/api/documentos', async (req, res) => {
   try {
     const { paso1ID, documentos, usuarioID } = req.body;
 
+    console.log('[PASO 3] Datos recibidos:');
+    console.log('   - paso1ID:', paso1ID);
+    console.log('   - cantidadDocumentos:', documentos ? documentos.length : 0);
+    console.log('   - usuarioID:', usuarioID);
+
+    // Validación
+    if (!paso1ID) {
+      console.error('[ERROR] paso1ID faltante');
+      return res.status(400).json({
+        success: false,
+        error: 'paso1ID es requerido'
+      });
+    }
+
     if (!documentos || documentos.length === 0) {
+      console.warn('⚠️ No hay documentos para guardar');
       return res.json({
         success: true,
         mensaje: 'No hay documentos para guardar'
       });
     }
 
+    const request = pool.request();
+    let totalSize = 0;
+
+    // 1. Guardar cada archivo en tabla Archivos
+    console.log('[INFO] Guardando archivos en BD...');
     for (const doc of documentos) {
-      await pool.request()
-        .input('Paso1ID', sql.Int, paso1ID)
-        .input('NombreArchivo', sql.NVarChar, doc.nombre)
-        .input('TipoArchivo', sql.NVarChar, doc.tipo || 'documento')
-        .input('RutaArchivo', sql.NVarChar(sql.MAX), doc.ruta || '/uploads/' + doc.nombre)
-        .input('ContenidoBase64', sql.NVarChar(sql.MAX), doc.contenido || null)
-        .input('DescripcionArchivo', sql.NVarChar(sql.MAX), doc.descripcion || null)
-        .input('UsuarioId', sql.Int, usuarioID)
-        .query(`
-          INSERT INTO Archivos (Paso1ID, NombreArchivo, TipoArchivo, RutaArchivo, ContenidoBase64, DescripcionArchivo, UsuarioId)
-          VALUES (@Paso1ID, @NombreArchivo, @TipoArchivo, @RutaArchivo, @ContenidoBase64, @DescripcionArchivo, @UsuarioId)
-        `);
+      try {
+        console.log(`   - Insertando: ${doc.nombre} (${doc.tamaño} bytes, tipo: ${doc.tipo})`);
+        const fileRequest = pool.request();
+        const result = await fileRequest
+          .input('Paso1ID', sql.Int, paso1ID)
+          .input('NombreArchivo', sql.NVarChar, doc.nombre)
+          .input('TipoArchivo', sql.NVarChar, doc.tipo || 'documento')
+          .input('ContenidoBase64', sql.NVarChar(sql.MAX), doc.contenido || null)
+          .input('UsuarioId', sql.Int, usuarioID)
+          .query(`
+            INSERT INTO Archivos (Paso1ID, NombreArchivo, TipoArchivo, ContenidoBase64, UsuarioId)
+            VALUES (@Paso1ID, @NombreArchivo, @TipoArchivo, @ContenidoBase64, @UsuarioId)
+          `);
+        totalSize += doc.tamaño || 0;
+        console.log(`[OK] Insertado en tabla Archivos`);
+      } catch (fileError) {
+        console.error(`[ERROR] Error insertando archivo ${doc.nombre}:`, fileError.message);
+        throw fileError;
+      }
     }
 
-    res.json({
+    // 2. Crear/Actualizar registro en ContenedoresPaso3
+    console.log('[INFO] Actualizando ContenedoresPaso3...');
+    try {
+      const paso3Request = pool.request();
+      await paso3Request
+        .input('Paso1ID', sql.Int, paso1ID)
+        .input('UsuarioResponsableID', sql.Int, usuarioID)
+        .query(`
+          IF NOT EXISTS (SELECT 1 FROM ContenedoresPaso3 WHERE Paso1ID = @Paso1ID)
+            INSERT INTO ContenedoresPaso3 (Paso1ID, UsuarioResponsableID, FechaCreacion)
+            VALUES (@Paso1ID, @UsuarioResponsableID, GETDATE())
+          ELSE
+            UPDATE ContenedoresPaso3
+            SET FechaCreacion = GETDATE()
+            WHERE Paso1ID = @Paso1ID
+        `);
+      console.log(`[OK] ContenedoresPaso3 actualizado`);
+    } catch (paso3Error) {
+      console.error('[ERROR] Error en ContenedoresPaso3:', paso3Error.message);
+      throw paso3Error;
+    }
+
+    // 3. AUTOMÁTICAMENTE cambiar Status a Completado y archivar el contenedor
+    console.log('[INFO] Cambiando Status a Completado e Activo=0...');
+    try {
+      const updateRequest = pool.request();
+      const updateResult = await updateRequest
+        .input('Paso1ID', sql.Int, paso1ID)
+        .query(`
+          UPDATE ContenedoresPaso1
+          SET Status = 'Completado',
+              FechaCompletado = GETDATE(),
+              Activo = 0
+          WHERE Paso1ID = @Paso1ID
+        `);
+      console.log(`[OK] Status actualizado a Completado`);
+      console.log(`   Filas afectadas: ${updateResult.rowsAffected[0]}`);
+    } catch (updateError) {
+      console.error('[ERROR] Error cambiando Status:', updateError.message);
+      throw updateError;
+    }
+
+    const respuestaFinal = {
       success: true,
-      mensaje: `${documentos.length} documentos guardados en Paso 3`
-    });
+      mensaje: `${documentos.length} documentos guardados. Contenedor completado y archivado automáticamente.`,
+      paso3Completado: true,
+      nuevaState: {
+        status: 'Completado',
+        activo: false
+      }
+    };
+    console.log('[OK] [PASO 3] FINALIZADO EXITOSAMENTE');
+    res.json(respuestaFinal);
 
   } catch (error) {
-    console.error('Error guardando documentos:', error);
+    console.error('[ERROR] [PASO 3] Error guardando documentos:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -249,15 +327,12 @@ router.get('/api/contenedores', async (req, res) => {
           p1.PoNo,
           p1.UsuarioCreadorID,
           p1.FechaCreacion,
+          p1.FechaCompletado,
+          p1.Status,
           p1.Activo,
-          CASE WHEN p2.Paso2ID IS NOT NULL THEN 1 ELSE 0 END as Paso2Completado,
-          CASE WHEN p3.Paso3ID IS NOT NULL THEN 1 ELSE 0 END as Paso3Completado,
-          p2.Paso2ID,
-          p2.Estado,
-          p2.Turno
+          (SELECT COUNT(*) FROM ContenedoresPaso2 WHERE Paso1ID = p1.Paso1ID) as Paso2Count,
+          (SELECT COUNT(*) FROM ContenedoresPaso3 WHERE Paso1ID = p1.Paso1ID) as Paso3Count
         FROM ContenedoresPaso1 p1
-        LEFT JOIN ContenedoresPaso2 p2 ON p1.Paso1ID = p2.Paso1ID
-        LEFT JOIN ContenedoresPaso3 p3 ON p1.Paso1ID = p3.Paso1ID
         ORDER BY p1.FechaCreacion DESC
       `);
 

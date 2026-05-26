@@ -22,26 +22,31 @@ export default function Contenedores() {
       setLoading(true)
       const contenedores = await api.obtenerTodosLosContenedores()
       
-      console.log('✓ Contenedores cargados de la API:', contenedores.length)
+      // Filtrar solo los que están en proceso (Activo = true Y Status = 'En proceso' o NULL)
+      const contenedoresActivos = contenedores.filter(c => c.Activo && (!c.Status || c.Status === 'En proceso'))
       
-      // Filtrar solo activos (Activo = 1)
-      const contenedoresActivos = contenedores.filter(c => c.Activo === 1)
+      // Deduplicar por paso1ID (prevenir duplicados por StrictMode)
+      const vistosSet = new Set()
+      const contenedoresDedupados = contenedoresActivos.filter(c => {
+        if (vistosSet.has(c.Paso1ID)) return false
+        vistosSet.add(c.Paso1ID)
+        return true
+      })
       
       // Transformar datos de BD al formato de tabla
-      const trailersMapeados = contenedoresActivos.map((c, idx) => ({
+      const trailersMapeados = contenedoresDedupados.map((c, idx) => ({
         paso1ID: c.Paso1ID,
         trailerNo: c.TrailerNo || 'N/A',
         tipo: c.TrailerType || 'N/A',
         contenedor: c.SeaContainerType || 'N/A',
         puertoEntrada: c.PortOfEntry || 'N/A',
         llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-ES') : 'N/A',
-        status: c.Estado || (c.Paso2Completado ? 'PASO2' : 'PASO1'),
+        status: c.Status || (c.Paso2Completado ? 'PASO2' : 'En proceso'),
         paso2ID: c.Paso2ID,
         paso3ID: c.Paso3ID
       }))
 
       setTrailers(trailersMapeados)
-      console.log('✓ Trailers activos:', trailersMapeados.length)
     } catch (error) {
       console.error('Error cargando contenedores:', error)
       setTrailers([])
@@ -74,32 +79,32 @@ export default function Contenedores() {
       try {
         const resultado = await api.archivarContenedor(id)
         if (resultado.success) {
-          alert('✅ Contenedor archivado exitosamente')
+          alert('Contenedor archivado exitosamente')
           cargarContenedores()
           setMenuAbierto(null)
         } else {
-          alert('❌ Error: ' + resultado.error)
+          alert('Error: ' + resultado.error)
         }
       } catch (error) {
-        alert('❌ Error archivando: ' + error.message)
+        alert('Error archivando: ' + error.message)
       }
     }
   }
 
   const handleEliminar = async (id, e) => {
     e.stopPropagation()
-    if (window.confirm('⚠️ ¿Estás seguro? Esto eliminará el contenedor DE LA BD de forma permanente')) {
+    if (window.confirm('¿Estás seguro? Esto eliminará el contenedor DE LA BD de forma permanente')) {
       try {
         const resultado = await api.eliminarContenedor(id)
         if (resultado.success) {
-          alert('✅ Contenedor eliminado exitosamente')
+          alert('Contenedor eliminado exitosamente')
           cargarContenedores()
           setMenuAbierto(null)
         } else {
-          alert('❌ Error: ' + resultado.error)
+          alert('Error: ' + resultado.error)
         }
       } catch (error) {
-        alert('❌ Error eliminando: ' + error.message)
+        alert('Error eliminando: ' + error.message)
       }
     }
   }
@@ -153,7 +158,7 @@ export default function Contenedores() {
               </tr>
             ) : (
               trailers.map((trailer) => (
-                <tr key={trailer.id} onClick={() => handleClickFila(trailer)} style={{ cursor: 'pointer' }}>
+                <tr key={trailer.paso1ID} onClick={() => handleClickFila(trailer)} style={{ cursor: 'pointer' }}>
                   <td className="trailer-no">{trailer.trailerNo}</td>
                   <td>{trailer.tipo}</td>
                   <td>{trailer.contenedor}</td>
@@ -170,23 +175,23 @@ export default function Contenedores() {
                         className="action-btn" 
                         onClick={(e) => {
                           e.stopPropagation()
-                          setMenuAbierto(menuAbierto === trailer.id ? null : trailer.id)
+                          setMenuAbierto(menuAbierto === trailer.paso1ID ? null : trailer.paso1ID)
                         }}
                         title="Opciones"
                       >
                         <HiEllipsisVertical />
                       </button>
-                      {menuAbierto === trailer.id && (
+                      {menuAbierto === trailer.paso1ID && (
                         <div className="dropdown-menu">
                           <button 
                             className="menu-option archivar"
-                            onClick={(e) => handleArchivar(trailer.id, e)}
+                            onClick={(e) => handleArchivar(trailer.paso1ID, e)}
                           >
                             📦 Archivar
                           </button>
                           <button 
                             className="menu-option eliminar"
-                            onClick={(e) => handleEliminar(trailer.id, e)}
+                            onClick={(e) => handleEliminar(trailer.paso1ID, e)}
                           >
                             🗑️ Eliminar
                           </button>

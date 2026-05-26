@@ -30,10 +30,10 @@ export const cargarPaso1 = async (paso1ID) => {
       throw new Error(data.error || 'Error cargando Paso 1');
     }
 
-    console.log('📥 Datos Paso 1 cargados:', data.datos);
+    console.log('[INFO] Datos Paso 1 cargados:', data.datos);
     return data.datos;
   } catch (error) {
-    console.error('❌ Error cargando Paso 1:', error);
+    console.error('[ERROR] Error cargando Paso 1:', error);
     return null;
   }
 };
@@ -60,7 +60,7 @@ export const guardarPaso1 = async (formData, usuarioID = 1) => {
 
     const data = await response.json();
 
-    console.log('📥 Respuesta Paso 1:', data);
+    console.log('[INFO] Respuesta Paso 1:', data);
 
     if (!response.ok) {
       throw new Error(data.details || data.error || 'Error guardando Paso 1');
@@ -68,7 +68,7 @@ export const guardarPaso1 = async (formData, usuarioID = 1) => {
 
     return { success: true, paso1ID: data.paso1ID };
   } catch (error) {
-    console.error('❌ Error Paso 1:', error);
+    console.error('[ERROR] Error Paso 1:', error);
     return { success: false, error: error.message };
   }
 };
@@ -109,19 +109,54 @@ export const guardarPaso2 = async (inspeccionData, usuarioID = 1) => {
 // ────────────────────────────────────────────────────────────────────
 export const guardarPaso3 = async (contenedorID, archivos, usuarioID = 1) => {
   try {
-    // Convertir archivos a objeto para enviar al servidor
-    const documentos = archivos.map(file => ({
-      nombre: file.name,
-      tipo: file.type,
-      tamaño: file.size,
-      ruta: `/uploads/${file.name}`
-    }));
+    console.log('[PASO 3] INICIADO - Archivos recibidos:', archivos.length);
+    console.log('[INFO] Leyendo archivos como Base64...');
+
+    // Convertir archivos a Base64 antes de enviar
+    const documentos = await Promise.all(
+      archivos.map(file => 
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            // reader.result es: "data:image/png;base64,iVBORw0K..."
+            // Extraer solo la parte Base64 (después del prefijo)
+            let base64Content = reader.result;
+            if (base64Content.includes(',')) {
+              base64Content = base64Content.split(',')[1];
+            }
+            
+            const doc = {
+              nombre: file.name,
+              tipo: file.type,
+              tamaño: file.size,
+              ruta: `/uploads/${file.name}`,
+              contenido: base64Content // Solo Base64
+            };
+            console.log(`[OK] Archivo leído: ${file.name} (${file.size} bytes)`);
+            resolve(doc);
+          };
+          reader.onerror = () => {
+            console.error(`[ERROR] Error leyendo ${file.name}`);
+            reject(new Error(`Error leyendo ${file.name}`));
+          };
+          reader.readAsDataURL(file);
+        })
+      )
+    );
+
+    console.log('[INFO] Todos los archivos leídos:', documentos.length);
 
     const payload = {
-      contenedorID,
+      paso1ID: contenedorID,
       documentos,
       usuarioID
     };
+
+    console.log('[INFO] Enviando payload a /api/documentos:', {
+      paso1ID: contenedorID,
+      cantidadDocumentos: documentos.length,
+      usuarioID
+    });
 
     const response = await fetch(`${API_BASE_URL}/documentos`, {
       method: 'POST',
@@ -132,14 +167,17 @@ export const guardarPaso3 = async (contenedorID, archivos, usuarioID = 1) => {
     });
 
     const data = await response.json();
+    console.log('[INFO] Respuesta del servidor:', data);
 
     if (!response.ok) {
+      console.error('[ERROR] Error en respuesta:', response.status, data);
       throw new Error(data.error || 'Error guardando Paso 3');
     }
 
+    console.log('[OK] PASO 3 COMPLETADO - Status debe cambiar a Completado');
     return data;
   } catch (error) {
-    console.error('Error Paso 3:', error);
+    console.error('[ERROR] Error Paso 3:', error);
     return { success: false, error: error.message };
   }
 };

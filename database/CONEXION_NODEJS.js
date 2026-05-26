@@ -201,41 +201,11 @@ router.post('/api/inspeccion', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// SUBIR DOCUMENTOS (Paso 3)
+// ❌ DEPRECATED: SUBIR DOCUMENTOS (Paso 3) - USAR /src/api/routes/contenedores.js
 // ────────────────────────────────────────────────────────────────────
-router.post('/api/documentos', async (req, res) => {
-  try {
-    const { contenedorID, documentos, usuarioID } = req.body;
-
-    const request = pool.request();
-
-    for (const doc of documentos) {
-      await request
-        .input('ContenedorID', sql.Int, contenedorID)
-        .input('NombreArchivo', sql.NVarChar, doc.nombre)
-        .input('TipoArchivo', sql.NVarChar, doc.tipo)
-        .input('TamañoKB', sql.Int, Math.ceil(doc.tamaño / 1024))
-        .input('RutaArchivo', sql.NVarChar, doc.ruta)
-        .input('UsuarioSubidaID', sql.Int, usuarioID)
-        .query(`
-          INSERT INTO Documentos (ContenedorID, NombreArchivo, TipoArchivo, TamañoKB, RutaArchivo, UsuarioSubidaID)
-          VALUES (@ContenedorID, @NombreArchivo, @TipoArchivo, @TamañoKB, @RutaArchivo, @UsuarioSubidaID)
-        `);
-    }
-
-    res.json({
-      success: true,
-      mensaje: `${documentos.length} documentos guardados en Paso 3`
-    });
-
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+// Este endpoint ha sido movido a contenedores.js con lógica mejorada
+// que incluye auto-actualización de Status a "Completado"
+// ────────────────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────────────────
 // OBTENER CONTENEDOR COMPLETO

@@ -11,6 +11,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  pointer-events: none;
 }
 
 .modal-container {
@@ -23,6 +24,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
 }
 
 /* Modal Header */
@@ -191,8 +193,22 @@
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 641px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
 }
 
 /* Form Group */
@@ -370,14 +386,15 @@
 .signature-canvas {
   display: block;
   width: 100%;
-  height: auto;
+  height: 300px;
   max-width: 100%;
-  border: 2px solid #dae2ea;
+  min-height: 300px;
+  border: 2px solid #0A46FF;
   border-radius: 8px;
   background: white;
   cursor: crosshair;
   touch-action: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(10, 70, 255, 0.2);
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -694,14 +711,18 @@
 .scan-section {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px;
+  gap: 16px;
+  padding: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .scan-buttons-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 .btn-scan-camera,
@@ -710,41 +731,90 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 40px 20px;
+  gap: 8px;
+  padding: 16px;
   border: 2px dashed #0A46FF;
   border-radius: 12px;
   background: #f0f5fc;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #0A1B5B;
   text-align: center;
+  min-height: 80px;
+  width: 100%;
 }
 
 .btn-scan-camera:hover,
 .btn-scan-upload:hover {
   background: #e0ebff;
   border-color: #0533CC;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(10, 70, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(10, 70, 255, 0.15);
 }
 
 .scan-icon {
-  font-size: 48px;
+  font-size: 28px;
+}
+
+@media (min-width: 481px) {
+  .scan-section {
+    padding: 18px;
+    gap: 14px;
+  }
+  
+  .scan-buttons-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  
+  .btn-scan-camera,
+  .btn-scan-upload {
+    padding: 18px 14px;
+    min-height: 100px;
+    font-size: 13px;
+  }
+  
+  .scan-icon {
+    font-size: 32px;
+  }
+}
+
+@media (min-width: 769px) {
+  .scan-section {
+    padding: 20px;
+    gap: 16px;
+  }
+  
+  .scan-buttons-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .btn-scan-camera,
+  .btn-scan-upload {
+    padding: 20px 16px;
+    min-height: 120px;
+    font-size: 13px;
+  }
+  
+  .scan-icon {
+    font-size: 36px;
+  }
 }
 
 .scan-text {
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
 }
 
 .scanned-documents {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: 12px;
+  padding: 16px;
   background: #f9fafc;
   border-radius: 8px;
   border: 1px solid #dae2ea;
@@ -753,39 +823,44 @@
 .documents-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .document-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 12px;
   background: white;
   border: 1px solid #e8ecf1;
-  border-radius: 8px;
-  gap: 12px;
+  border-radius: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .document-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
+  min-width: 150px;
 }
 
 .document-icon {
-  font-size: 24px;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .document-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  flex: 1;
+  min-width: 100px;
 }
 
 .document-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #0A1B5B;
   word-break: break-all;
@@ -839,18 +914,42 @@
     flex: 1;
   }
 
+  .scan-section {
+    padding: 16px;
+    gap: 16px;
+  }
+
   .scan-buttons-container {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .btn-scan-camera,
   .btn-scan-upload {
-    padding: 50px 20px;
+    padding: 20px 16px;
+    min-height: 110px;
   }
 
   .scan-icon {
-    font-size: 56px;
+    font-size: 32px;
+  }
+
+  .scan-text {
+    font-size: 12px;
+  }
+
+  .document-item {
+    padding: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .document-info {
+    width: 100%;
+  }
+
+  .remove-document {
+    width: 100%;
   }
 }
 
@@ -866,17 +965,67 @@
     font-size: 13px;
   }
 
+  .scan-section {
+    padding: 12px;
+    gap: 12px;
+  }
+
   .scan-buttons-container {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .btn-scan-camera,
   .btn-scan-upload {
-    padding: 30px 16px;
+    padding: 16px 12px;
+    min-height: 100px;
+    font-size: 12px;
+    gap: 6px;
   }
 
   .scan-icon {
-    font-size: 36px;
+    font-size: 28px;
+  }
+
+  .scan-text {
+    font-size: 11px;
+  }
+
+  .scanned-documents {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .documents-list {
+    gap: 8px;
+  }
+
+  .document-item {
+    padding: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .document-info {
+    width: 100%;
+  }
+
+  .document-icon {
+    font-size: 18px;
+  }
+
+  .document-name {
+    font-size: 11px;
+  }
+
+  .document-size {
+    font-size: 10px;
+  }
+
+  .remove-document {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 11px;
   }
 }
 
@@ -971,6 +1120,7 @@
 
   .form-grid {
     gap: 12px;
+    grid-template-columns: 1fr;
   }
 
   .form-container {

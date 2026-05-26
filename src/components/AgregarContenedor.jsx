@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import '../styles/agregarContenedor.css';
-import { MdArrowBack } from 'react-icons/md';
+import { MdArrowBack, MdDelete, MdImage } from 'react-icons/md';
+import { FiCamera, FiUpload, FiX } from 'react-icons/fi';
 import * as api from '../services/api';
 
 export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorData }) {
@@ -96,6 +97,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
         ...prev,
         firmaResponsable: signatureDataUrl
       }));
+      alert('Firma guardada correctamente');
     }
   };
 
@@ -103,90 +105,61 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
 
-    // Esperar a que el canvas esté renderizado antes de inicializar
-    const initCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = Math.max(250, rect.height) * window.devicePixelRatio;
-      
-      const context = canvas.getContext('2d');
-      context.scale(window.devicePixelRatio, window.devicePixelRatio);
-      
-      // Configuración del canvas
-      context.lineCap = 'round';
-      context.lineJoin = 'round';
-      context.lineWidth = 2;
-      context.strokeStyle = '#0A1B5B';
-    };
-
-    initCanvas();
+    // Establecer dimensiones reales del canvas
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = 300;
 
     const context = canvas.getContext('2d');
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.lineWidth = 2;
+    context.strokeStyle = '#0A1B5B';
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-    const handleStart = (e) => {
-      e.preventDefault();
+    let isDrawing = false;
+
+    const startDrawing = (e) => {
       isDrawing = true;
       const rect = canvas.getBoundingClientRect();
-
-      if (e.touches && e.touches.length > 0) {
-        lastX = e.touches[0].clientX - rect.left;
-        lastY = e.touches[0].clientY - rect.top;
-      } else if (e.clientX !== undefined) {
-        lastX = e.clientX - rect.left;
-        lastY = e.clientY - rect.top;
-      }
+      const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+      const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
+      context.beginPath();
+      context.moveTo(x, y);
     };
 
-    const handleMove = (e) => {
+    const draw = (e) => {
       if (!isDrawing) return;
       e.preventDefault();
-
       const rect = canvas.getBoundingClientRect();
-      let x, y;
-
-      if (e.touches && e.touches.length > 0) {
-        x = e.touches[0].clientX - rect.left;
-        y = e.touches[0].clientY - rect.top;
-      } else if (e.clientX !== undefined) {
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
-      } else {
-        return;
-      }
-
-      context.beginPath();
-      context.moveTo(lastX, lastY);
+      const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+      const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
       context.lineTo(x, y);
       context.stroke();
-
-      lastX = x;
-      lastY = y;
     };
 
-    const handleEnd = (e) => {
-      e.preventDefault();
+    const stopDrawing = () => {
       isDrawing = false;
+      context.closePath();
     };
 
-    canvas.addEventListener('mousedown', handleStart, false);
-    canvas.addEventListener('mousemove', handleMove, false);
-    canvas.addEventListener('mouseup', handleEnd, false);
-    canvas.addEventListener('mouseout', handleEnd, false);
-    canvas.addEventListener('touchstart', handleStart, false);
-    canvas.addEventListener('touchmove', handleMove, false);
-    canvas.addEventListener('touchend', handleEnd, false);
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    canvas.addEventListener('touchstart', startDrawing);
+    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', stopDrawing);
 
     return () => {
-      canvas.removeEventListener('mousedown', handleStart);
-      canvas.removeEventListener('mousemove', handleMove);
-      canvas.removeEventListener('mouseup', handleEnd);
-      canvas.removeEventListener('mouseout', handleEnd);
-      canvas.removeEventListener('touchstart', handleStart);
-      canvas.removeEventListener('touchmove', handleMove);
-      canvas.removeEventListener('touchend', handleEnd);
+      canvas.removeEventListener('mousedown', startDrawing);
+      canvas.removeEventListener('mousemove', draw);
+      canvas.removeEventListener('mouseup', stopDrawing);
+      canvas.removeEventListener('mouseout', stopDrawing);
+      canvas.removeEventListener('touchstart', startDrawing);
+      canvas.removeEventListener('touchmove', draw);
+      canvas.removeEventListener('touchend', stopDrawing);
     };
   }, []);
 
@@ -259,8 +232,75 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     cargarDatos();
   }, [initialPaso1ID]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < totalSteps) {
+      // En Paso 1 y 2, guardar antes de avanzar
+      if (currentStep === 1 || currentStep === 2) {
+        const usuarioActual = api.obtenerUsuarioActual();
+        const usuarioID = usuarioActual?.id || 1;
+        
+        try {
+          setLoading(true);
+          
+          if (currentStep === 1) {
+            // Guardar Paso 1 antes de avanzar
+            let response;
+            if (paso1IDState) {
+              response = await api.actualizarPaso1(paso1IDState, formData, usuarioID);
+            } else {
+              response = await api.guardarPaso1(formData, usuarioID);
+              if (response.success && response.paso1ID) {
+                setPaso1IDState(response.paso1ID);
+              }
+            }
+            
+            if (!response.success) {
+              alert('❌ Error al guardar Paso 1. Verifica los datos e intenta de nuevo.');
+              setLoading(false);
+              return;
+            }
+          } else if (currentStep === 2) {
+            // Guardar Paso 2 antes de avanzar
+            if (!paso1IDState) {
+              alert('⚠️ Primero debes guardar el Paso 1');
+              setLoading(false);
+              return;
+            }
+            
+            let horaLimpia = null;
+            if (formData.horaRegistro && formData.horaRegistro.trim() !== '') {
+              const match = formData.horaRegistro.match(/(\d{1,2}):(\d{2})/);
+              if (match) {
+                horaLimpia = `${String(parseInt(match[1])).padStart(2, '0')}:${match[2]}:00`;
+              }
+            }
+
+            const inspeccionData = {
+              ...formData,
+              horaRegistro: horaLimpia,
+              empresas: formData.empresas || [],
+              paso1ID: paso1IDState
+            };
+            const response = await api.guardarPaso2(inspeccionData, usuarioID);
+            
+            if (!response.success) {
+              alert('❌ Error al guardar Paso 2. Verifica los datos e intenta de nuevo.');
+              setLoading(false);
+              return;
+            }
+            
+            await api.actualizarEstado(paso1IDState, 2, true);
+          }
+        } catch (error) {
+          alert('❌ Error: ' + error.message);
+          setLoading(false);
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
+      
+      // Avanzar al siguiente paso
       setCurrentStep(currentStep + 1);
       window.scrollTo(0, 0);
     }
@@ -288,18 +328,18 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           // Es edición - actualizar contenedor existente
           response = await api.actualizarPaso1(paso1IDState, formData, usuarioID);
           if (response.success) {
-            alert('✅ Paso 1 actualizado exitosamente en BD');
+            alert('[OK] Paso 1 actualizado exitosamente en BD');
           } else {
-            alert('❌ Error al actualizar Paso 1: ' + api.procesarError(response));
+            alert('[ERROR] Error al actualizar Paso 1: ' + api.procesarError(response));
           }
         } else {
           // Es nuevo - crear nuevo contenedor
           response = await api.guardarPaso1(formData, usuarioID);
           if (response.success && response.paso1ID) {
             setPaso1IDState(response.paso1ID);
-            alert('✅ Paso 1 guardado exitosamente en BD');
+            alert('[OK] Paso 1 guardado exitosamente en BD');
           } else {
-            alert('❌ Error al guardar Paso 1: ' + api.procesarError(response));
+            alert('[ERROR] Error al guardar Paso 1: ' + api.procesarError(response));
           }
         }
       } else if (currentStep === 2) {
@@ -325,29 +365,47 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
         };
         const response = await api.guardarPaso2(inspeccionData, usuarioID);
         if (response.success) {
-          alert('✅ Paso 2 guardado exitosamente en BD');
+          alert('[OK] Paso 2 guardado exitosamente en BD');
           await api.actualizarEstado(paso1IDState, 2, true);
         } else {
-          alert('❌ Error al guardar Paso 2: ' + (response.error || 'Sin detalles'));
+          alert('[ERROR] Error al guardar Paso 2: ' + (response.error || 'Sin detalles'));
         }
       } else if (currentStep === 3) {
         // PASO 3: Guardar documentos
-        if (!paso1IDState) {
-          alert('⚠️ Primero debes guardar el Paso 1');
+        const paso1IdFinal = paso1IDState || paso1ID;
+        
+        console.log('[INFO] [PASO 3] Intentando guardar...');
+        console.log('   - paso1ID:', paso1IdFinal);
+        console.log('   - attachments.length:', attachments.length);
+        
+        if (!paso1IdFinal) {
+          alert('Error: No se encontró el ID del contenedor. Guarda primero el Paso 1');
           setLoading(false);
           return;
         }
-        const response = await api.guardarPaso3(paso1IDState, attachments, 1);
+
+        if (attachments.length === 0) {
+          alert('Sube al menos un documento para completar el Paso 3');
+          setLoading(false);
+          return;
+        }
+
+        console.log('[INFO] Enviando Paso 3 al servidor...');
+        const response = await api.guardarPaso3(paso1IdFinal, attachments, usuarioID);
+        console.log('[RESPONSE] Respuesta Paso 3:', response);
+        
         if (response.success) {
-          alert('✅ Paso 3 (Documentos) guardado exitosamente en BD');
-          // Actualizar estado del paso 3
-          await api.actualizarEstado(paso1IDState, 3, true);
+          alert('¡Contenedor completado y archivado automáticamente!');
+          // Esperar un poco y cerrar el modal para que actualice la lista
+          setTimeout(() => {
+            onClose();
+          }, 1000);
         } else {
-          alert('❌ Error al guardar Paso 3');
+          alert('Error al guardar documentos: ' + (response.error || 'Sin detalles'));
         }
       }
     } catch (error) {
-      alert('❌ Error: ' + error.message);
+      alert('Error: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -372,7 +430,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             <MdArrowBack />
           </button>
           <div className="header-content">
-            <h1>{paso1IDState ? '📝 Continuar con los Pasos' : 'Nueva llegada de contenedor'}</h1>
+            <h1>{paso1IDState ? 'Continuar con los Pasos' : 'Nueva llegada de contenedor'}</h1>
             <p>{paso1IDState 
               ? 'Completa los pasos 2 y 3 para finalizar el registro.' 
               : 'Registra la información de la llegada del contenedor al almacén.'}</p>
@@ -975,8 +1033,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             {currentStep === 3 && (
               <>
                 <div className="step-title full-width">
-                  <h2>Paso 3 de 3: Escaneo de Documentos</h2>
-                  <p>Captura o sube documentos relacionados con el contenedor</p>
+                  <h2>Paso 3 de 3: Documentos</h2>
+                  <p>Captura o sube fotos y documentos del contenedor</p>
                 </div>
 
                 <div className="scan-section full-width">
@@ -986,16 +1044,16 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                       className="btn-scan-camera"
                       onClick={() => cameraInputRef.current?.click()}
                     >
-                      <span className="scan-icon">📷</span>
-                      <span className="scan-text">Capturar con Cámara</span>
+                      <FiCamera size={24} />
+                      <span className="scan-text">Capturar Foto</span>
                     </button>
                     <button
                       type="button"
                       className="btn-scan-upload"
                       onClick={() => cameraInputRef.current?.click()}
                     >
-                      <span className="scan-icon">📁</span>
-                      <span className="scan-text">Subir Documento</span>
+                      <FiUpload size={24} />
+                      <span className="scan-text">Subir Archivo</span>
                     </button>
                     <input
                       ref={cameraInputRef}
@@ -1010,13 +1068,13 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                   {attachments.length > 0 && (
                     <div className="scanned-documents">
-                      <h3 className="section-title">Documentos Capturados</h3>
+                      <h3 className="section-title">Documentos ({attachments.length})</h3>
                       <div className="documents-list">
                         {attachments.map((file, index) => (
                           <div key={index} className="document-item">
                             <div className="document-info">
                               <span className="document-icon">
-                                {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                                {file.type.startsWith('image/') ? <MdImage size={20} /> : <FiUpload size={20} />}
                               </span>
                               <div className="document-details">
                                 <span className="document-name">{file.name}</span>
@@ -1029,18 +1087,15 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                               type="button"
                               className="remove-document"
                               onClick={() => removeAttachment(index)}
+                              title="Eliminar"
                             >
-                              ✕
+                              <FiX size={18} />
                             </button>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  <div className="scan-info">
-                    <p>📱 Optimizado para tabletas - toca los botones para capturar o subir documentos</p>
-                  </div>
                 </div>
               </>
             )}

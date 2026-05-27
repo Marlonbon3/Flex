@@ -6,15 +6,15 @@
 const sql = require('mssql');
 require('dotenv').config();
 
-// Configuración de conexión a SQL Server Local
+// Configuración de conexión a SQL Server con usuario sa
 const config = {
-  server: process.env.DB_SERVER || 'MSI\\SQLEXPRESS',
+  server: process.env.DB_SERVER || 'MARLONBOY\\SQLEXPRESS',
   database: process.env.DB_NAME || 'FlexWebApp',
   authentication: {
     type: 'default',
     options: {
       userName: process.env.DB_USER || 'sa',
-      password: process.env.DB_PASSWORD || 'Flex@2026'
+      password: process.env.DB_PASSWORD || 'Admin123'
     }
   },
   options: {
@@ -28,12 +28,34 @@ const config = {
 
 const pool = new sql.ConnectionPool(config);
 
-pool.connect(err => {
-  if (err) {
-    console.error('❌ Error conectando a SQL Server:', err);
-    process.exit(1);
+let connectionAttempts = 0;
+const maxRetries = 3;
+
+const connectPool = async () => {
+  try {
+    connectionAttempts++;
+    console.log(`[${new Date().toISOString()}] Intentando conectar a BD (intento ${connectionAttempts}/${maxRetries})...`);
+    
+    await pool.connect();
+    console.log('✓ Conectado a SQL Server exitosamente');
+  } catch (err) {
+    console.error('❌ Error conectando a SQL Server:', err.message);
+    
+    if (connectionAttempts < maxRetries) {
+      console.log(`Reintentar en 3 segundos...`);
+      setTimeout(connectPool, 3000);
+    } else {
+      console.error('❌ No se pudo conectar después de ' + maxRetries + ' intentos');
+      process.exit(1);
+    }
   }
-  console.log('✓ Conectado a SQL Server exitosamente');
+};
+
+connectPool();
+
+// Manejo de errores del pool
+pool.on('error', err => {
+  console.error('❌ Error en el pool de conexión:', err);
 });
 
 module.exports = pool;

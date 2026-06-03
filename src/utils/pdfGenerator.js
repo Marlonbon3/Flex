@@ -175,14 +175,14 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
     
     // Checklist
     const checklist = [
-      'Condiciones de las dos puertas del trailer',
-      'Revisar que se encuentre libre de olores extraños',
-      'Revisar que no tenga plagas, basura y humedad',
-      'Revisar que los empaques de la carga están cerrados',
-      'Condiciones de la pared del fondo del trailer',
-      'Condiciones de paredes internas del trailer',
-      'Condiciones internas del techo del trailer',
-      'Condiciones de piso | plataforma interna | del trailer'
+      { desc: 'Condiciones de las dos puertas del trailer', state: paso2Data.Cond1 },
+      { desc: 'Revisar que se encuentre libre de olores extraños', state: paso2Data.Cond2 },
+      { desc: 'Revisar que no tenga plagas, basura y humedad', state: paso2Data.Cond3 },
+      { desc: 'Revisar que los empaques de la carga están cerrados', state: paso2Data.Cond4 },
+      { desc: 'Condiciones de la pared del fondo del trailer', state: paso2Data.Cond5 },
+      { desc: 'Condiciones de paredes internas del trailer', state: paso2Data.Cond6 },
+      { desc: 'Condiciones internas del techo del trailer', state: paso2Data.Cond7 },
+      { desc: 'Condiciones de piso | plataforma interna | del trailer', state: paso2Data.Cond8 }
     ];
     
     yPos = addSection(doc, yPos, 'Checklist de Revisión');
@@ -192,9 +192,26 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
     
     checklist.forEach((item) => {
       yPos = checkPageBreak(doc, yPos, 8);
-      doc.text('☑ ' + item, MARGIN + 2, yPos);
+      const checkbox = item.state === 1 || item.state === true ? '☑' : '☐';
+      doc.text(checkbox + ' ' + item.desc, MARGIN + 2, yPos);
       yPos += 6;
     });
+    
+    // Firma
+    if (paso2Data.FirmaResponsable) {
+      yPos = checkPageBreak(doc, yPos, 40);
+      yPos = addSection(doc, yPos, 'Firma del Responsable');
+      try {
+        // La firma viene como data URL: data:image/png;base64,...
+        doc.addImage(paso2Data.FirmaResponsable, 'PNG', MARGIN, yPos, 80, 30);
+        yPos += 35;
+      } catch (error) {
+        doc.setTextColor(...COLORS.text);
+        doc.setFontSize(8);
+        doc.text('Firma: [Imagen no disponible]', MARGIN, yPos);
+        yPos += 10;
+      }
+    }
   }
   
   addPageNumber(doc, pageNum);
@@ -246,7 +263,7 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
     yPos = addSection(doc, yPos, `Documentos (${archivos.length} archivo(s))`);
     
     archivos.forEach((archivo, index) => {
-      yPos = checkPageBreak(doc, yPos, 20);
+      yPos = checkPageBreak(doc, yPos, 60);
       
       doc.setTextColor(...COLORS.primary);
       doc.setFontSize(10);
@@ -260,7 +277,34 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
       doc.text(`Tipo: ${archivo.TipoArchivo}`, MARGIN + 5, yPos);
       yPos += 5;
       doc.text(`Fecha: ${formatDate(archivo.FechaCreacion)}`, MARGIN + 5, yPos);
-      yPos += 10;
+      yPos += 8;
+      
+      // Renderizar imagen desde Base64
+      if (archivo.ContenidoBase64 && (archivo.TipoArchivo === 'imagen' || archivo.TipoArchivo === 'foto')) {
+        try {
+          // Si no tiene prefijo data:, agregarlo
+          let imageData = archivo.ContenidoBase64;
+          if (!imageData.startsWith('data:')) {
+            imageData = 'data:image/jpeg;base64,' + imageData;
+          }
+          
+          // Renderizar imagen (ancho: 80mm, alto: 50mm)
+          doc.addImage(imageData, 'JPEG', MARGIN, yPos, 80, 50);
+          yPos += 55;
+        } catch (error) {
+          doc.setTextColor(...COLORS.text);
+          doc.setFontSize(8);
+          doc.text('[Imagen no disponible o corrupta]', MARGIN + 5, yPos);
+          yPos += 10;
+        }
+      } else if (archivo.TipoArchivo === 'documento' || archivo.TipoArchivo === 'pdf') {
+        doc.setTextColor(...COLORS.text);
+        doc.setFontSize(8);
+        doc.text('[PDF o Documento - Ver anexos]', MARGIN + 5, yPos);
+        yPos += 10;
+      }
+      
+      yPos += 5;
     });
     
     addPageNumber(doc, pageNum);

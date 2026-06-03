@@ -4,6 +4,27 @@
 -- ====================================================================
 
 -- ────────────────────────────────────────────────────────────────────
+-- 0. TABLA: Usuarios (Autenticación)
+-- ────────────────────────────────────────────────────────────────────
+CREATE TABLE Usuarios (
+    UsuarioID INT PRIMARY KEY IDENTITY(1,1),
+    NombreCompleto NVARCHAR(100) NOT NULL,
+    Email NVARCHAR(100) UNIQUE NOT NULL,
+    Contraseña NVARCHAR(255) NOT NULL,
+    Rol NVARCHAR(50) DEFAULT 'Usuario', -- 'Admin', 'Inspector', 'Usuario', etc.
+    Activo BIT DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT GETDATE(),
+    UltimoAcceso DATETIME NULL
+);
+
+-- Insertar usuario de prueba (cambiar contraseña en producción)
+INSERT INTO Usuarios (NombreCompleto, Email, Contraseña, Rol, Activo)
+VALUES 
+    ('Administrador', 'admin@flex.com', 'Admin@2026', 'Admin', 1),
+    ('Inspector', 'inspector@flex.com', 'Inspector@2026', 'Inspector', 1),
+    ('Usuario Regular', 'usuario@flex.com', 'Usuario@2026', 'Usuario', 1);
+
+-- ────────────────────────────────────────────────────────────────────
 -- 1. TABLA: ContenedoresPaso1 (Información Básica)
 -- CAMBIOS: Agregado Status y FechaCompletado
 -- ────────────────────────────────────────────────────────────────────

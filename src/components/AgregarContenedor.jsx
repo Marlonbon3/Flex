@@ -105,18 +105,37 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
 
-    // Establecer dimensiones reales del canvas
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = 300;
-
-    const context = canvas.getContext('2d');
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = 2;
-    context.strokeStyle = '#0A1B5B';
-    context.fillStyle = 'white';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Función para inicializar el canvas con dimensiones correctas
+    const initializeCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      
+      // Si rect.width es 0, usar un ancho por defecto
+      let width = rect.width > 0 ? rect.width : 400;
+      let height = 300;
+      
+      // En mobile (ancho < 480px), ajustar altura
+      if (window.innerWidth < 480) {
+        height = 150;
+      } else if (window.innerWidth < 768) {
+        height = 200;
+      }
+      
+      // Establecer dimensiones reales del canvas (resolución interna)
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Dibujar fondo blanco
+      const context = canvas.getContext('2d');
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.lineWidth = 2;
+      context.strokeStyle = '#0A1B5B';
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    };
+    
+    // Esperar un poco para asegurar que el DOM esté listo
+    setTimeout(initializeCanvas, 100);
 
     let isDrawing = false;
 
@@ -125,22 +144,36 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
       const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
+      
+      // Escalar coordenadas a la resolución interna del canvas
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const context = canvas.getContext('2d');
       context.beginPath();
-      context.moveTo(x, y);
+      context.moveTo(x * scaleX, y * scaleY);
     };
 
     const draw = (e) => {
       if (!isDrawing) return;
       e.preventDefault();
+      
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
       const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
-      context.lineTo(x, y);
+      
+      // Escalar coordenadas a la resolución interna del canvas
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const context = canvas.getContext('2d');
+      context.lineTo(x * scaleX, y * scaleY);
       context.stroke();
     };
 
     const stopDrawing = () => {
       isDrawing = false;
+      const context = canvas.getContext('2d');
       context.closePath();
     };
 
@@ -152,6 +185,12 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     canvas.addEventListener('touchmove', draw);
     canvas.addEventListener('touchend', stopDrawing);
 
+    // Re-inicializar cuando cambie el tamaño de la ventana
+    const handleResize = () => {
+      initializeCanvas();
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
       canvas.removeEventListener('mousedown', startDrawing);
       canvas.removeEventListener('mousemove', draw);
@@ -160,6 +199,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
       canvas.removeEventListener('touchstart', startDrawing);
       canvas.removeEventListener('touchmove', draw);
       canvas.removeEventListener('touchend', stopDrawing);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -212,7 +252,17 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             origen: datosCompletos.Origen || '',
             empresas: datosCompletos.Empresas ? JSON.parse(datosCompletos.Empresas) : [],
             responsableDescarga: datosCompletos.ResponsableDescarga || '',
-            firmaResponsable: datosCompletos.FirmaResponsable || ''
+            firmaResponsable: datosCompletos.FirmaResponsable || '',
+            condiciones: {
+              cond1: datosCompletos.Cond1 === 1 || datosCompletos.Cond1 === true,
+              cond2: datosCompletos.Cond2 === 1 || datosCompletos.Cond2 === true,
+              cond3: datosCompletos.Cond3 === 1 || datosCompletos.Cond3 === true,
+              cond4: datosCompletos.Cond4 === 1 || datosCompletos.Cond4 === true,
+              cond5: datosCompletos.Cond5 === 1 || datosCompletos.Cond5 === true,
+              cond6: datosCompletos.Cond6 === 1 || datosCompletos.Cond6 === true,
+              cond7: datosCompletos.Cond7 === 1 || datosCompletos.Cond7 === true,
+              cond8: datosCompletos.Cond8 === 1 || datosCompletos.Cond8 === true
+            }
           }));
           
           // Si Paso 2 existe, ir directo a Paso 2

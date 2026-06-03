@@ -378,6 +378,14 @@ router.get('/api/contenedores/:id', async (req, res) => {
           p2.Empresas,
           p2.ResponsableDescarga,
           p2.FirmaResponsable,
+          p2.Cond1,
+          p2.Cond2,
+          p2.Cond3,
+          p2.Cond4,
+          p2.Cond5,
+          p2.Cond6,
+          p2.Cond7,
+          p2.Cond8,
           p3.Paso3ID,
           p3.InformacionAdicional,
           p3.DescargaCompleta,
@@ -862,6 +870,40 @@ router.post('/api/entrega-turno', async (req, res) => {
 
   } catch (error) {
     console.error('Error al registrar entrega:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// 13. OBTENER ARCHIVOS DE UN CONTENEDOR (Para PDF)
+// ────────────────────────────────────────────────────────────────────
+router.get('/api/archivos/:paso1ID', async (req, res) => {
+  try {
+    const { paso1ID } = req.params;
+    
+    const result = await pool.request()
+      .input('Paso1ID', sql.Int, paso1ID)
+      .query(`
+        SELECT 
+          ArchivoID,
+          NombreArchivo,
+          TipoArchivo,
+          ContenidoBase64
+        FROM Archivos
+        WHERE Paso1ID = @Paso1ID
+        ORDER BY ArchivoID DESC
+      `);
+
+    res.json({
+      success: true,
+      archivos: result.recordset || []
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo archivos:', error);
     res.status(500).json({
       success: false,
       error: error.message

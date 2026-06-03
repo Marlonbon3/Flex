@@ -7,6 +7,7 @@ import { IoNotifications, IoSettingsSharp, IoHelpCircleSharp } from 'react-icons
 import { MdLogout, MdMenu, MdClose } from 'react-icons/md'
 import Contenedores from './Contenedores'
 import Archivo from './Archivo'
+import EntregaTurno from './EntregaTurno'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
@@ -229,6 +230,8 @@ export default function Home({ tab = 'inicio' }) {
           {activeMenu === 'contenedores' && <Contenedores />}
 
           {activeMenu === 'archivo' && <Archivo />}
+
+          {activeMenu === 'turno' && <EntregaTurno />}
         </div>
 
         {/* Footer */}

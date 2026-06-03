@@ -651,7 +651,7 @@ router.post('/api/login', async (req, res) => {
       .query(`
         SELECT UsuarioID, NombreCompleto, Email, Rol, Activo
         FROM Usuarios
-        WHERE Email = @Email AND Contraseña = @Password AND Activo = 1
+        WHERE Email = @Email AND Contrasena = @Password AND Activo = 1
       `);
 
     // Nota: En producción, usar bcrypt para hashear contraseñas
@@ -661,7 +661,7 @@ router.post('/api/login', async (req, res) => {
       const userCheck = await pool.request()
         .input('Email', sql.NVarChar, email)
         .query(`
-          SELECT UsuarioID, NombreCompleto, Email, Rol, Activo, Contraseña
+          SELECT UsuarioID, NombreCompleto, Email, Rol, Activo, Contrasena
           FROM Usuarios
           WHERE Email = @Email
         `);
@@ -674,7 +674,7 @@ router.post('/api/login', async (req, res) => {
       }
 
       const user = userCheck.recordset[0];
-      if (user.Contraseña !== password || user.Activo === 0) {
+      if (user.Contrasena !== password || user.Activo === 0) {
         return res.status(401).json({
           success: false,
           error: 'Credenciales inválidas'

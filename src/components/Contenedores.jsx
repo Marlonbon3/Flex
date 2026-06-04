@@ -13,6 +13,7 @@ export default function Contenedores() {
   const [loading, setLoading] = useState(true)
   const [contenedorSeleccionado, setContenedorSeleccionado] = useState(null)
   const [menuAbierto, setMenuAbierto] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
   const [dialog, setDialog] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null })
 
   const showAlert = (title, message, type = 'info') =>
@@ -197,14 +198,20 @@ export default function Contenedores() {
                         className="action-btn"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setMenuAbierto(menuAbierto === trailer.paso1ID ? null : trailer.paso1ID)
+                          if (menuAbierto === trailer.paso1ID) {
+                            setMenuAbierto(null)
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                            setMenuAbierto(trailer.paso1ID)
+                          }
                         }}
                         title="Opciones"
                       >
                         <HiEllipsisVertical />
                       </button>
                       {menuAbierto === trailer.paso1ID && (
-                        <div className="dropdown-menu">
+                        <div className="dropdown-menu" style={{ top: menuPos.top, right: menuPos.right }}>
                           <button
                             className="menu-option archivar"
                             onClick={(e) => handleArchivar(trailer.paso1ID, e)}

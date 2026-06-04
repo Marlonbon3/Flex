@@ -9,6 +9,7 @@
   padding: 20px;
   backdrop-filter: blur(2px);
   animation: cdialog-fade-in 0.15s ease;
+  pointer-events: auto;
 }
 
 @keyframes cdialog-fade-in {

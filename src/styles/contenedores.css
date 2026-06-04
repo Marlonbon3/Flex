@@ -279,18 +279,16 @@
 
 /* Menu Dropdown Styles */
 .menu-container {
-  position: relative;
+  position: static;
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 9000;
   min-width: 150px;
   animation: slideDown 0.2s ease;
 }

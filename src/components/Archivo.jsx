@@ -31,7 +31,7 @@ export default function Archivo() {
     try {
       setLoading(true)
       const todos = await api.obtenerTodosLosContenedores()
-      const archivados = todos.filter(c => !c.Activo && c.Status === 'Completado')
+      const archivados = todos.filter(c => !c.Activo)
 
       const vistosSet = new Set()
       const deduped = archivados.filter(c => {

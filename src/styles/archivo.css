@@ -71,7 +71,7 @@
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  color: #7b8aa3;
+  color: #546c7f;
   transition: all 0.2s ease;
   font-weight: 500;
   font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
@@ -220,32 +220,49 @@
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
 
-.actions .icon {
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
+.archivo-row:hover {
+  background: #f0f5fc !important;
 }
 
-.actions .icon:first-child {
+.action-btn-arch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+}
+
+.action-btn-arch.edit-btn {
+  color: #1565c0;
+}
+.action-btn-arch.edit-btn:hover {
+  background: #e8f1fd;
+  color: #0d47a1;
+}
+
+.action-btn-arch.pdf-btn {
   color: #0A46FF;
 }
-
-.actions .icon:first-child:hover {
+.action-btn-arch.pdf-btn:hover {
+  background: #e8edff;
   color: #0533CC;
-  transform: scale(1.1);
 }
 
-.actions .icon:last-child {
-  color: #eb5064;
+.action-btn-arch.delete-btn {
+  color: #c62828;
 }
-
-.actions .icon:last-child:hover {
-  color: #d43f52;
-  transform: scale(1.1);
+.action-btn-arch.delete-btn:hover {
+  background: #fdecea;
+  color: #b71c1c;
 }
 
 .archivo-footer {
@@ -256,7 +273,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: #7b8aa3;
+  color: #546c7f;
   font-weight: 400;
 }
 

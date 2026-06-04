@@ -1,0 +1,152 @@
+.cdialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 27, 91, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  backdrop-filter: blur(2px);
+  animation: cdialog-fade-in 0.15s ease;
+}
+
+@keyframes cdialog-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cdialog-box {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(10, 27, 91, 0.18), 0 4px 16px rgba(0,0,0,0.08);
+  padding: 36px 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: cdialog-slide-up 0.18s ease;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', sans-serif;
+}
+
+@keyframes cdialog-slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.cdialog-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.cdialog-icon-wrap.confirm { background: #FFF8E7; }
+.cdialog-icon-wrap.success { background: #ECFDF5; }
+.cdialog-icon-wrap.error   { background: #FEF2F2; }
+.cdialog-icon-wrap.info    { background: #EFF6FF; }
+
+.cdialog-icon-wrap svg {
+  width: 40px;
+  height: 40px;
+}
+
+.cdialog-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A1B5B;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.cdialog-message {
+  margin: 0;
+  font-size: 14px;
+  color: #5a6a7e;
+  text-align: center;
+  line-height: 1.6;
+  max-width: 340px;
+}
+
+.cdialog-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  width: 100%;
+  justify-content: center;
+}
+
+.cdialog-btn {
+  padding: 11px 28px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', sans-serif;
+  min-width: 110px;
+}
+
+.cdialog-cancel {
+  background: #f0f3f9;
+  color: #5a6a7e;
+}
+.cdialog-cancel:hover {
+  background: #e3e8f0;
+  color: #0A1B5B;
+}
+
+.cdialog-confirm.confirm {
+  background: #F59E0B;
+  color: white;
+}
+.cdialog-confirm.confirm:hover {
+  background: #D97706;
+  box-shadow: 0 4px 14px rgba(245,158,11,0.35);
+}
+
+.cdialog-confirm.success {
+  background: #10B981;
+  color: white;
+}
+.cdialog-confirm.success:hover {
+  background: #059669;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+}
+
+.cdialog-confirm.error {
+  background: #EF4444;
+  color: white;
+}
+.cdialog-confirm.error:hover {
+  background: #DC2626;
+  box-shadow: 0 4px 14px rgba(239,68,68,0.35);
+}
+
+.cdialog-confirm.info {
+  background: #0A46FF;
+  color: white;
+}
+.cdialog-confirm.info:hover {
+  background: #0533CC;
+  box-shadow: 0 4px 14px rgba(10,70,255,0.35);
+}
+
+@media (max-width: 480px) {
+  .cdialog-box {
+    padding: 28px 20px 22px;
+  }
+  .cdialog-actions {
+    flex-direction: column-reverse;
+  }
+  .cdialog-btn {
+    width: 100%;
+  }
+}

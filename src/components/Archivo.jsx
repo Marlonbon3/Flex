@@ -1,90 +1,93 @@
 import React, { useState, useEffect } from 'react'
-import { MdDownload, MdDelete, MdFilePresent } from 'react-icons/md'
+import { MdDownload, MdDelete, MdFilePresent, MdEdit } from 'react-icons/md'
 import { BsFilePdf, BsSearch } from 'react-icons/bs'
-import { FiRefreshCw } from 'react-icons/fi'
 import '../styles/archivo.css'
 import * as api from '../services/api'
 import { generarPDFContenedor } from '../utils/pdfGenerator'
-import { exportarExcel, exportarPaso1Excel } from '../utils/excelExporter'
+import { exportarExcel } from '../utils/excelExporter'
+import AgregarContenedor from './AgregarContenedor'
+import ConfirmDialog from './ConfirmDialog'
 
 export default function Archivo() {
-  const [contenedores, setContenedores] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [contenedores, setContenedores] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [contenedorEditando, setContenedorEditando] = useState(null)
+  const [dialog, setDialog] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null })
 
-  // Cargar datos de la BD al montar el componente
+  const showAlert = (title, message, type = 'info') =>
+    setDialog({ isOpen: true, type, title, message, onConfirm: null })
+
+  const showConfirm = (title, message, onConfirm) =>
+    setDialog({ isOpen: true, type: 'confirm', title, message, onConfirm })
+
+  const closeDialog = () => setDialog(d => ({ ...d, isOpen: false }))
+
   useEffect(() => {
-    cargarContenedores();
-  }, []);
+    cargarContenedores()
+  }, [])
 
   const cargarContenedores = async () => {
     try {
-      setLoading(true);
-      // Cargar SOLO contenedores completados y archivados (Activo = 0 Y Status = 'Completado')
-      const todosLosContenedores = await api.obtenerTodosLosContenedores()
-      const contenedoresArchivados = todosLosContenedores.filter(c => 
-        !c.Activo && c.Status === 'Completado'
-      )
-      
-      // Deduplicar por Paso1ID (prevenir duplicados por StrictMode)
+      setLoading(true)
+      const todos = await api.obtenerTodosLosContenedores()
+      const archivados = todos.filter(c => !c.Activo && c.Status === 'Completado')
+
       const vistosSet = new Set()
-      const contenedoresDedupados = contenedoresArchivados.filter(c => {
+      const deduped = archivados.filter(c => {
         if (vistosSet.has(c.Paso1ID)) return false
         vistosSet.add(c.Paso1ID)
         return true
       })
-      
-      setContenedores(contenedoresDedupados)
-      console.log('Archivados cargados:', contenedoresDedupados.length)
-    } catch (error) {
-      console.error('Error cargando contenedores archivados:', error);
-      setContenedores([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleEliminarContenedor = async (paso1ID) => {
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este contenedor?')) {
-      return;
-    }
-    try {
-      const response = await fetch(`http://localhost:5000/api/contenedores/${paso1ID}`, {
-        method: 'DELETE'
-      });
-      const data = await response.json();
-      if (data.success) {
-        alert('Contenedor eliminado exitosamente');
-        cargarContenedores();
-      } else {
-        alert('Error al eliminar: ' + (data.error || 'Error desconocido'));
-      }
+      setContenedores(deduped)
     } catch (error) {
-      console.error('Error eliminando contenedor:', error);
-      alert('Error al eliminar contenedor');
+      console.error('Error cargando archivados:', error)
+      setContenedores([])
+    } finally {
+      setLoading(false)
     }
-  };
+  }
+
+  const handleEliminar = (paso1ID) => {
+    showConfirm(
+      'Eliminar registro',
+      'Esta acción eliminará el registro del archivo de forma permanente. Esta operación no se puede deshacer.',
+      async () => {
+        closeDialog()
+        try {
+          const response = await fetch(`http://localhost:5000/api/contenedores/${paso1ID}`, { method: 'DELETE' })
+          const data = await response.json()
+          if (data.success) {
+            showAlert('Eliminado', 'El registro ha sido eliminado correctamente.', 'success')
+            cargarContenedores()
+          } else {
+            showAlert('Error', data.error || 'No se pudo eliminar el registro.', 'error')
+          }
+        } catch (error) {
+          showAlert('Error', 'Error al eliminar: ' + error.message, 'error')
+        }
+      }
+    )
+  }
 
   const handleVerPDF = async (paso1ID) => {
     try {
-      // Obtener datos completos del contenedor
-      const response = await fetch(`http://localhost:5000/api/contenedores/${paso1ID}`);
-      const result = await response.json();
-      
+      const response = await fetch(`http://localhost:5000/api/contenedores/${paso1ID}`)
+      const result = await response.json()
+
       if (!result.success || !result.datos) {
-        alert('Error al cargar datos del contenedor');
-        return;
+        showAlert('Error', 'No se pudieron cargar los datos del contenedor.', 'error')
+        return
       }
-      
-      const datos = result.datos;
-      
-      // Obtener archivos
+
+      const datos = result.datos
+
       const archivos = await fetch(`http://localhost:5000/api/archivos/${paso1ID}`)
         .then(r => r.json())
         .then(d => d.archivos || [])
-        .catch(() => []);
-      
-      // Generar PDF con todos los datos
+        .catch(() => [])
+
       generarPDFContenedor(
         {
           TrailerNo: datos.TrailerNo,
@@ -115,67 +118,83 @@ export default function Archivo() {
           Turno: datos.Turno,
           Sellos: datos.Sellos,
           Rampa: datos.Rampa,
+          HoraRegistro: datos.HoraRegistro,
           TotalPallets: datos.TotalPallets,
           LongitudContenedor: datos.LongitudContenedor,
           Origen: datos.Origen,
-          Empresas: datos.Empresas ? datos.Empresas.split(',') : []
+          Empresas: datos.Empresas ? datos.Empresas.split(',') : [],
+          ResponsableDescarga: datos.ResponsableDescarga,
+          FirmaResponsable: datos.FirmaResponsable,
+          Cond1: datos.Cond1, Cond2: datos.Cond2, Cond3: datos.Cond3, Cond4: datos.Cond4,
+          Cond5: datos.Cond5, Cond6: datos.Cond6, Cond7: datos.Cond7, Cond8: datos.Cond8
         },
         {
           DescargaCompleta: datos.DescargaCompleta,
           FechaDescarga: datos.FechaDescarga,
-          HoraDescarga: datos.HoraDescarga,
-          InformacionAdicional: datos.InformacionAdicional,
-          ObservacionesFinales: datos.ObservacionesFinales
+          HoraDescarga: datos.HoraDescarga
         },
         archivos
-      );
+      )
     } catch (error) {
-      console.error('Error generando PDF:', error);
-      alert('Error al generar PDF: ' + error.message);
+      showAlert('Error', 'Error al generar el PDF: ' + error.message, 'error')
     }
-  };
+  }
 
-  // Agrupar contenedores por fecha
-  const agruparPorFecha = (contenedores) => {
-    const grupos = {};
-    contenedores.forEach(c => {
-      const fecha = new Date(c.FechaCreacion).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      if (!grupos[fecha]) {
-        grupos[fecha] = [];
-      }
-      grupos[fecha].push(c);
-    });
-    return grupos;
-  };
+  const handleEditar = (contenedor) => {
+    setContenedorEditando(contenedor)
+  }
 
-  const filtrar = (contenedores) => {
-    if (!searchTerm) return contenedores;
-    return contenedores.filter(c => 
-      c.TrailerNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.SeaContainerType?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
+  const handleCerrarEdicion = () => {
+    setContenedorEditando(null)
+    cargarContenedores()
+  }
 
-  const gruposContenedores = agruparPorFecha(filtrar(contenedores));
-  const todosLosContenedores = Object.values(gruposContenedores).flat();
+  const handleExportar = () => {
+    if (contenedores.length === 0) {
+      showAlert('Sin datos', 'No hay registros en el archivo para exportar.', 'info')
+      return
+    }
+    exportarExcel(contenedores, 'Archivo_Contenedores.xlsx')
+    showAlert('Exportado', 'El archivo Excel ha sido generado correctamente.', 'success')
+  }
+
+  const filtrar = (lista) => {
+    if (!searchTerm) return lista
+    const q = searchTerm.toLowerCase()
+    return lista.filter(c =>
+      c.TrailerNo?.toLowerCase().includes(q) ||
+      c.SeaContainerType?.toLowerCase().includes(q) ||
+      c.PortOfEntry?.toLowerCase().includes(q)
+    )
+  }
+
+  const agruparPorFecha = (lista) => {
+    const grupos = {}
+    lista.forEach(c => {
+      const fecha = new Date(c.FechaCreacion).toLocaleDateString('es-MX', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      })
+      if (!grupos[fecha]) grupos[fecha] = []
+      grupos[fecha].push(c)
+    })
+    return grupos
+  }
+
+  const gruposContenedores = agruparPorFecha(filtrar(contenedores))
+  const todosLosContenedores = Object.values(gruposContenedores).flat()
 
   return (
     <section className="archivo-section">
       <div className="archivo-header">
         <h2>Archivo de Documentos</h2>
-        <p>Consulta, visualiza y descarga los documentos generados en el flujo operativo.</p>
+        <p>Consulta, edita y descarga los documentos generados en el flujo operativo.</p>
       </div>
 
       <div className="archivo-filters">
         <div className="filter-group">
           <input type="date" defaultValue="2026-05-07" className="date-input" />
-          <span>-</span>
-          <input type="date" defaultValue="2026-07-05" className="date-input" />
-          <button className="filter-btn">↻</button>
+          <span style={{ color: '#7b8aa3' }}>—</span>
+          <input type="date" defaultValue="2026-12-31" className="date-input" />
         </div>
         <select className="filter-select">
           <option>Todos los tipos</option>
@@ -184,19 +203,18 @@ export default function Archivo() {
           <option>Otros</option>
         </select>
         <div className="search-box">
-          <input 
-            type="text" 
-            placeholder="Buscar documento, trailer, contenedor..." 
+          <BsSearch size={14} style={{ color: '#7b8aa3', flexShrink: 0 }} />
+          <input
+            type="text"
+            placeholder="Buscar por trailer, contenedor, puerto..."
             className="search-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <button className="search-btn">
-            <BsSearch size={16} />
-          </button>
         </div>
-        <button className="export-btn">
-          <MdFilePresent size={16} /> Exportar a Excel
+        <button className="export-btn" onClick={handleExportar}>
+          <MdFilePresent size={15} />
+          Exportar a Excel
         </button>
       </div>
 
@@ -216,51 +234,62 @@ export default function Archivo() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  Cargando contenedores...
+                <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: '#7b8aa3' }}>
+                  Cargando registros...
                 </td>
               </tr>
             ) : todosLosContenedores.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  No hay contenedores registrados
+                <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: '#7b8aa3' }}>
+                  No hay registros en el archivo.
                 </td>
               </tr>
             ) : (
-              Object.entries(gruposContenedores).map(([fecha, contenedores]) => (
+              Object.entries(gruposContenedores).map(([fecha, items]) => (
                 <React.Fragment key={fecha}>
                   <tr>
                     <td colSpan="7" className="date-group">
-                      {fecha} ({contenedores.length})
+                      {fecha} &nbsp;·&nbsp; {items.length} registro(s)
                     </td>
                   </tr>
-                  {contenedores.map((c) => (
-                    <tr key={c.Paso1ID}>
+                  {items.map((c) => (
+                    <tr
+                      key={c.Paso1ID}
+                      className="archivo-row"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleEditar(c)}
+                    >
                       <td>
-                        {new Date(c.FechaCreacion).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
+                        {new Date(c.FechaCreacion).toLocaleTimeString('es-MX', {
+                          hour: '2-digit', minute: '2-digit'
                         })}
                       </td>
-                      <td>Nueva llegada de contenedor</td>
-                      <td>{c.TrailerNo || 'N/A'}</td>
+                      <td>Llegada de contenedor</td>
+                      <td style={{ fontWeight: 600, color: '#0A46FF' }}>{c.TrailerNo || 'N/A'}</td>
                       <td>{c.SeaContainerType || 'N/A'}</td>
                       <td>{c.PortOfEntry || 'N/A'}</td>
                       <td>Usuario #{c.UsuarioCreadorID || 'N/A'}</td>
-                      <td className="actions">
-                        <button 
-                          className="action-btn pdf-btn" 
-                          title="Ver PDF"
+                      <td className="actions" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="action-btn-arch edit-btn"
+                          title="Editar registro"
+                          onClick={() => handleEditar(c)}
+                        >
+                          <MdEdit size={17} />
+                        </button>
+                        <button
+                          className="action-btn-arch pdf-btn"
+                          title="Descargar PDF"
                           onClick={() => handleVerPDF(c.Paso1ID)}
                         >
-                          <BsFilePdf size={18} />
+                          <BsFilePdf size={17} />
                         </button>
-                        <button 
-                          className="action-btn delete-btn" 
-                          title="Eliminar"
-                          onClick={() => handleEliminarContenedor(c.Paso1ID)}
+                        <button
+                          className="action-btn-arch delete-btn"
+                          title="Eliminar registro"
+                          onClick={() => handleEliminar(c.Paso1ID)}
                         >
-                          <MdDelete size={18} />
+                          <MdDelete size={17} />
                         </button>
                       </td>
                     </tr>
@@ -273,11 +302,11 @@ export default function Archivo() {
       </div>
 
       <div className="archivo-footer">
-        <p>Mostrando 1 a {todosLosContenedores.length} de {todosLosContenedores.length} documentos</p>
+        <p>Mostrando {todosLosContenedores.length} de {contenedores.length} documento(s)</p>
         <div className="pagination">
-          <button className="pag-btn">←</button>
+          <button className="pag-btn">&#8592;</button>
           <button className="pag-btn active">1</button>
-          <button className="pag-btn">→</button>
+          <button className="pag-btn">&#8594;</button>
           <select className="items-per-page">
             <option>10 por página</option>
             <option>20 por página</option>
@@ -285,6 +314,25 @@ export default function Archivo() {
           </select>
         </div>
       </div>
+
+      {contenedorEditando && (
+        <AgregarContenedor
+          onClose={handleCerrarEdicion}
+          initialPaso1ID={contenedorEditando.Paso1ID}
+          contenedorData={contenedorEditando}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        onConfirm={dialog.onConfirm}
+        onClose={closeDialog}
+        confirmText={dialog.type === 'confirm' ? 'Confirmar' : 'Aceptar'}
+        cancelText="Cancelar"
+      />
     </section>
   )
 }

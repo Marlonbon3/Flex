@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { MdAdd, MdDownload } from 'react-icons/md'
+import { MdAdd, MdDownload, MdArchive, MdDelete } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
 import AgregarContenedor from './AgregarContenedor'
+import ConfirmDialog from './ConfirmDialog'
 import * as api from '../services/api'
+import { exportarExcel } from '../utils/excelExporter'
 
 export default function Contenedores() {
   const [showFormModal, setShowFormModal] = useState(false)
@@ -11,42 +13,47 @@ export default function Contenedores() {
   const [loading, setLoading] = useState(true)
   const [contenedorSeleccionado, setContenedorSeleccionado] = useState(null)
   const [menuAbierto, setMenuAbierto] = useState(null)
+  const [dialog, setDialog] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null })
 
-  // Cargar contenedores de la BD
+  const showAlert = (title, message, type = 'info') =>
+    setDialog({ isOpen: true, type, title, message, onConfirm: null })
+
+  const showConfirm = (title, message, onConfirm) =>
+    setDialog({ isOpen: true, type: 'confirm', title, message, onConfirm })
+
+  const closeDialog = () => setDialog(d => ({ ...d, isOpen: false }))
+
   useEffect(() => {
     cargarContenedores()
+    // Close dropdown when clicking outside
+    const handleOutsideClick = () => setMenuAbierto(null)
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
   }, [])
 
   const cargarContenedores = async () => {
     try {
       setLoading(true)
       const contenedores = await api.obtenerTodosLosContenedores()
-      
-      // Filtrar solo los que están en proceso (Activo = true Y Status = 'En proceso' o NULL)
       const contenedoresActivos = contenedores.filter(c => c.Activo && (!c.Status || c.Status === 'En proceso'))
-      
-      // Deduplicar por paso1ID (prevenir duplicados por StrictMode)
+
       const vistosSet = new Set()
-      const contenedoresDedupados = contenedoresActivos.filter(c => {
+      const deduped = contenedoresActivos.filter(c => {
         if (vistosSet.has(c.Paso1ID)) return false
         vistosSet.add(c.Paso1ID)
         return true
       })
-      
-      // Transformar datos de BD al formato de tabla
-      const trailersMapeados = contenedoresDedupados.map((c, idx) => ({
+
+      setTrailers(deduped.map(c => ({
         paso1ID: c.Paso1ID,
         trailerNo: c.TrailerNo || 'N/A',
         tipo: c.TrailerType || 'N/A',
         contenedor: c.SeaContainerType || 'N/A',
         puertoEntrada: c.PortOfEntry || 'N/A',
-        llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-ES') : 'N/A',
-        status: c.Status || (c.Paso2Completado ? 'PASO2' : 'En proceso'),
-        paso2ID: c.Paso2ID,
-        paso3ID: c.Paso3ID
-      }))
-
-      setTrailers(trailersMapeados)
+        llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-MX') : 'N/A',
+        status: c.Status || 'En proceso',
+        _raw: c
+      })))
     } catch (error) {
       console.error('Error cargando contenedores:', error)
       setTrailers([])
@@ -63,7 +70,6 @@ export default function Contenedores() {
   const handleCerrarModal = () => {
     setShowFormModal(false)
     setContenedorSeleccionado(null)
-    // Recargar contenedores después de cerrar el modal
     cargarContenedores()
   }
 
@@ -73,48 +79,64 @@ export default function Contenedores() {
     setMenuAbierto(null)
   }
 
-  const handleArchivar = async (id, e) => {
+  const handleArchivar = (id, e) => {
     e.stopPropagation()
-    if (window.confirm('¿Estás seguro de que deseas archivar este contenedor?')) {
-      try {
-        const resultado = await api.archivarContenedor(id)
-        if (resultado.success) {
-          alert('Contenedor archivado exitosamente')
-          cargarContenedores()
-          setMenuAbierto(null)
-        } else {
-          alert('Error: ' + resultado.error)
+    setMenuAbierto(null)
+    showConfirm(
+      'Archivar contenedor',
+      'Esta acción moverá el contenedor al archivo. Podrá consultarlo desde la sección de Archivo.',
+      async () => {
+        closeDialog()
+        try {
+          const resultado = await api.archivarContenedor(id)
+          if (resultado.success) {
+            showAlert('Archivado', 'El contenedor ha sido archivado exitosamente.', 'success')
+            cargarContenedores()
+          } else {
+            showAlert('Error', resultado.error || 'No se pudo archivar el contenedor.', 'error')
+          }
+        } catch (error) {
+          showAlert('Error', error.message, 'error')
         }
-      } catch (error) {
-        alert('Error archivando: ' + error.message)
       }
-    }
+    )
   }
 
-  const handleEliminar = async (id, e) => {
+  const handleEliminar = (id, e) => {
     e.stopPropagation()
-    if (window.confirm('¿Estás seguro? Esto eliminará el contenedor DE LA BD de forma permanente')) {
-      try {
-        const resultado = await api.eliminarContenedor(id)
-        if (resultado.success) {
-          alert('Contenedor eliminado exitosamente')
-          cargarContenedores()
-          setMenuAbierto(null)
-        } else {
-          alert('Error: ' + resultado.error)
+    setMenuAbierto(null)
+    showConfirm(
+      'Eliminar contenedor',
+      'Esta acción eliminará el contenedor de forma permanente. Esta operación no se puede deshacer.',
+      async () => {
+        closeDialog()
+        try {
+          const resultado = await api.eliminarContenedor(id)
+          if (resultado.success) {
+            showAlert('Eliminado', 'El contenedor ha sido eliminado exitosamente.', 'success')
+            cargarContenedores()
+          } else {
+            showAlert('Error', resultado.error || 'No se pudo eliminar el contenedor.', 'error')
+          }
+        } catch (error) {
+          showAlert('Error', error.message, 'error')
         }
-      } catch (error) {
-        alert('Error eliminando: ' + error.message)
       }
-    }
+    )
   }
 
   const handleExportar = () => {
-    console.log('Exportar a Excel')
+    if (trailers.length === 0) {
+      showAlert('Sin datos', 'No hay contenedores activos para exportar.', 'info')
+      return
+    }
+    exportarExcel(trailers.map(t => t._raw), 'Contenedores_Activos.xlsx')
+    showAlert('Exportado', 'El archivo Excel ha sido generado correctamente.', 'success')
   }
 
   const getStatusClass = (status) => {
-    return status.toLowerCase()
+    const s = (status || '').toLowerCase().replace(/\s/g, '-')
+    return s
   }
 
   return (
@@ -146,14 +168,14 @@ export default function Contenedores() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  Cargando contenedores... ⏳
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#7b8aa3' }}>
+                  Cargando contenedores...
                 </td>
               </tr>
             ) : trailers.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  No hay contenedores registrados 📭
+                <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#7b8aa3' }}>
+                  No hay contenedores registrados en el flujo activo.
                 </td>
               </tr>
             ) : (
@@ -169,10 +191,10 @@ export default function Contenedores() {
                       {trailer.status}
                     </span>
                   </td>
-                  <td className="actions-cell">
+                  <td className="actions-cell" onClick={e => e.stopPropagation()}>
                     <div className="menu-container">
-                      <button 
-                        className="action-btn" 
+                      <button
+                        className="action-btn"
                         onClick={(e) => {
                           e.stopPropagation()
                           setMenuAbierto(menuAbierto === trailer.paso1ID ? null : trailer.paso1ID)
@@ -183,17 +205,19 @@ export default function Contenedores() {
                       </button>
                       {menuAbierto === trailer.paso1ID && (
                         <div className="dropdown-menu">
-                          <button 
+                          <button
                             className="menu-option archivar"
                             onClick={(e) => handleArchivar(trailer.paso1ID, e)}
                           >
-                            📦 Archivar
+                            <MdArchive size={15} />
+                            Archivar
                           </button>
-                          <button 
+                          <button
                             className="menu-option eliminar"
                             onClick={(e) => handleEliminar(trailer.paso1ID, e)}
                           >
-                            🗑️ Eliminar
+                            <MdDelete size={15} />
+                            Eliminar
                           </button>
                         </div>
                       )}
@@ -207,16 +231,27 @@ export default function Contenedores() {
       </div>
 
       <div className="table-footer">
-        <p>Mostrando {trailers.length} trailers activos en el flujo operativo.</p>
+        <p>Mostrando {trailers.length} trailer(s) en el flujo operativo activo.</p>
       </div>
 
       {showFormModal && (
-        <AgregarContenedor 
-          onClose={handleCerrarModal} 
+        <AgregarContenedor
+          onClose={handleCerrarModal}
           initialPaso1ID={contenedorSeleccionado?.paso1ID}
           contenedorData={contenedorSeleccionado}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        onConfirm={dialog.onConfirm}
+        onClose={closeDialog}
+        confirmText={dialog.type === 'confirm' ? 'Confirmar' : 'Aceptar'}
+        cancelText="Cancelar"
+      />
     </div>
   )
 }

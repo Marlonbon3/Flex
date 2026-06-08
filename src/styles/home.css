@@ -1,4 +1,4 @@
-/* Layout Principal */
+/* ─── Layout Principal ─── */
 .home-container {
   display: flex;
   height: 100vh;
@@ -6,48 +6,38 @@
   font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-/* Sidebar */
+/* ─── Sidebar (siempre overlay, hidden por defecto) ─── */
 .sidebar {
-  width: 200px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 260px;
   background: white;
   border-right: 1px solid #e3eaf3;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.35s ease;
 }
 
-/* Menu Toggle Button */
-.menu-toggle {
-  display: none;
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #7b8aa3;
-  padding: 8px;
-  margin-right: 12px;
+.sidebar.open {
+  transform: translateX(0);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.18);
 }
 
-/* Menu Overlay */
-.menu-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-}
-
+/* ─── Logo ─── */
 .sidebar-logo {
-  padding: 20px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid #f0f3f7;
+  min-height: 72px;
 }
 
 .logo-small {
@@ -55,6 +45,7 @@
   object-fit: contain;
 }
 
+/* ─── Nav Menu ─── */
 .sidebar-menu {
   flex: 1;
   padding: 12px 0;
@@ -64,16 +55,17 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 20px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: #7b8aa3;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   border-left: 3px solid transparent;
-  gap: 10px;
+  gap: 12px;
+  text-align: left;
 }
 
 .menu-item:hover {
@@ -95,55 +87,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .menu-text {
   flex: 1;
-  text-align: left;
 }
 
+/* ─── Sidebar Footer ─── */
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #f0f3f7;
-}
-
-.help-section {
-  margin-bottom: 16px;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.help-section p {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0A1B5B;
-}
-
-.help-section small {
-  display: block;
-  font-size: 11px;
-  color: #7b8aa3;
-  margin: 4px 0 8px;
-}
-
-.help-btn {
-  width: 100%;
-  padding: 8px 12px;
-  background: white;
-  border: 1px solid #0A46FF;
-  color: #0A46FF;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.help-btn:hover {
-  background: #eef6ff;
 }
 
 .logout-btn {
@@ -152,7 +106,7 @@
   background: #f5f7fa;
   border: 1px solid #e3eaf3;
   color: #7b8aa3;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
@@ -173,15 +127,76 @@
   font-size: 16px;
 }
 
-/* Main Content */
+/* ─── Overlay ─── */
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+  animation: overlay-in 0.25s ease both;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Hamburger Button ─── */
+.menu-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 26px;
+  height: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+
+.hb-line {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #7b8aa3;
+  border-radius: 2px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity   0.25s ease,
+              background 0.2s ease;
+  transform-origin: center;
+}
+
+.menu-toggle:hover .hb-line {
+  background: #0A46FF;
+}
+
+/* Hamburger → X */
+.menu-toggle.open .hb-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+  background: #0A46FF;
+}
+.menu-toggle.open .hb-line:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+.menu-toggle.open .hb-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+  background: #0A46FF;
+}
+
+/* ─── Main Content (full width siempre) ─── */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: 100%;
 }
 
-/* Top Bar */
+/* ─── Top Bar ─── */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -195,7 +210,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 .header-left h1 {
@@ -219,25 +234,6 @@
   gap: 12px;
 }
 
-.icon-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #7b8aa3;
-  transition: all 0.2s ease;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-btn:hover {
-  color: #0A46FF;
-  background: #f5f7fa;
-  border-radius: 6px;
-}
-
 .user-btn {
   width: 40px;
   height: 40px;
@@ -256,7 +252,7 @@
   box-shadow: 0 4px 12px rgba(10, 70, 255, 0.3);
 }
 
-/* Content Area */
+/* ─── Content Area ─── */
 .content-area {
   flex: 1;
   overflow-y: auto;
@@ -265,7 +261,7 @@
   flex-direction: column;
 }
 
-/* Carrusel */
+/* ─── Carrusel ─── */
 .carousel-section {
   margin-bottom: 32px;
 }
@@ -313,23 +309,17 @@
   opacity: 0.9;
 }
 
-/* Swiper Pagination */
+/* Swiper */
 :global(.swiper-pagination-bullet) {
   background: rgba(255, 255, 255, 0.5) !important;
   width: 10px !important;
   height: 10px !important;
 }
-
-:global(.swiper-pagination-bullet-active) {
-  background: white !important;
-}
-
+:global(.swiper-pagination-bullet-active) { background: white !important; }
 :global(.swiper-button-next),
-:global(.swiper-button-prev) {
-  color: white !important;
-}
+:global(.swiper-button-prev) { color: white !important; }
 
-/* Misión y Visión */
+/* ─── Misión y Visión ─── */
 .mission-vision {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -359,10 +349,6 @@
   margin-bottom: 16px;
 }
 
-.card-icon {
-  font-size: 28px;
-}
-
 .card-header h3 {
   margin: 0;
   font-size: 18px;
@@ -377,10 +363,9 @@
   color: #7b8aa3;
   line-height: 1.6;
   font-size: 14px;
-  font-weight: 400;
 }
 
-/* Información de la Empresa */
+/* ─── Información de Empresa ─── */
 .company-info {
   background: white;
   padding: 24px;
@@ -433,13 +418,12 @@
   line-height: 1.4;
 }
 
-/* Footer */
+/* ─── Footer ─── */
 .footer {
   background: white;
   border-top: 1px solid #e3eaf3;
   padding: 16px 24px;
   text-align: center;
-  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .footer-content p {
@@ -453,200 +437,36 @@
   color: #0A1B5B;
 }
 
-
-/* Responsive */
+/* ─── Responsive ─── */
 @media (max-width: 1024px) {
-  .mission-vision {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    width: 180px;
-  }
-
-  .carousel-slide {
-    height: 250px;
-  }
-
-  .slide-content {
-    padding: 30px;
-  }
-
-  .slide-content h2 {
-    font-size: 24px;
-  }
-
-  .slide-content p {
-    font-size: 14px;
-  }
+  .mission-vision { grid-template-columns: 1fr; }
+  .carousel { height: 250px; }
+  .slide-content { padding: 30px; }
+  .slide-content h2 { font-size: 24px; }
+  .slide-content p { font-size: 14px; }
 }
 
 @media (max-width: 768px) {
-  .menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .menu-overlay {
-    display: block;
-  }
-
-  .home-container {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 250px;
-    position: fixed;
-    height: 100vh;
-    left: -250px;
-    top: 0;
-    z-index: 1000;
-    border-right: 1px solid #e3eaf3;
-    overflow-y: auto;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .sidebar.open {
-    left: 0;
-  }
-
-  .sidebar-logo {
-    border-bottom: 1px solid #f0f3f7;
-    padding: 20px;
-  }
-
-  .sidebar-menu {
-    flex-direction: column;
-    padding: 12px 0;
-  }
-
-  .menu-item {
-    border-left: 3px solid transparent;
-    border-bottom: none;
-    padding: 12px 16px;
-  }
-
-  .menu-item.active {
-    border-left-color: #0A46FF;
-    border-bottom: none;
-  }
-
-  .menu-text {
-    display: inline;
-  }
-
-  .sidebar-footer {
-    display: block;
-    padding: 16px;
-    border-top: 1px solid #f0f3f7;
-  }
-
-  .main-content {
-    flex: 1;
-    width: 100%;
-  }
-
-  .top-bar {
-    padding: 12px 16px;
-  }
-
-  .header-left h1 {
-    font-size: 16px;
-  }
-
-  .content-area {
-    padding: 16px;
-  }
-
-  .carousel {
-    height: 200px;
-  }
-
-  .slide-content {
-    padding: 20px;
-  }
-
-  .slide-content h2 {
-    font-size: 20px;
-  }
-
-  .slide-content p {
-    font-size: 14px;
-  }
-
-  .info-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .carousel-section {
-    margin-bottom: 20px;
-  }
+  .top-bar { padding: 12px 16px; }
+  .header-left h1 { font-size: 16px; }
+  .content-area { padding: 16px; }
+  .carousel { height: 200px; }
+  .slide-content { padding: 20px; }
+  .slide-content h2 { font-size: 20px; }
+  .info-cards { grid-template-columns: repeat(2, 1fr); }
+  .carousel-section { margin-bottom: 20px; }
 }
 
 @media (max-width: 480px) {
-  .sidebar {
-    width: 200px;
-    left: -200px;
-  }
-
-  .sidebar.open {
-    left: 0;
-  }
-
-  .header-left h1 {
-    display: none;
-  }
-
-  .top-bar {
-    padding: 12px 12px;
-  }
-
-  .header-left {
-    gap: 8px;
-  }
-
-  .menu-toggle {
-    margin-right: 8px;
-    font-size: 20px;
-  }
-
-  .carousel {
-    height: 180px;
-  }
-
-  .slide-content {
-    padding: 16px;
-  }
-
-  .slide-content h2 {
-    font-size: 16px;
-    margin: 0 0 8px 0;
-  }
-
-  .slide-content p {
-    font-size: 12px;
-  }
-
-  .info-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .company-info {
-    padding: 16px;
-  }
-
-  .content-area {
-    padding: 12px;
-  }
-
-  .mission-vision {
-    gap: 16px;
-  }
-
-  .mission-card,
-  .vision-card {
-    padding: 16px;
-  }
+  .header-left h1 { display: none; }
+  .top-bar { padding: 12px; }
+  .carousel { height: 180px; }
+  .slide-content { padding: 16px; }
+  .slide-content h2 { font-size: 16px; margin: 0 0 8px; }
+  .slide-content p { font-size: 12px; }
+  .info-cards { grid-template-columns: 1fr; }
+  .company-info { padding: 16px; }
+  .content-area { padding: 12px; }
+  .mission-vision { gap: 16px; }
+  .mission-card, .vision-card { padding: 16px; }
 }

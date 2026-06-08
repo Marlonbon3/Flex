@@ -406,12 +406,100 @@ export const mostrarMensaje = (titulo, mensaje, tipo = 'info') => {
   const icono = tipo === 'success' ? '✓' : tipo === 'error' ? '✗' : 'ℹ';
   console.log(`${icono} [${titulo}] ${mensaje}`);
   
-  // Aquí puedes agregar una notificación visual (toast)
-  // Por ahora solo mostramos en consola y alert
-  if (tipo === 'success') {
-    alert(`✓ ${titulo}\n${mensaje}`);
-  } else if (tipo === 'error') {
-    alert(`✗ ${titulo}\n${mensaje}`);
+  // Usar el sistema de toast de AlertProvider desde el componente que llame esta función
+};
+
+// ────────────────────────────────────────────────────────────────────
+// 13. CATÁLOGOS - Listas configurables por admin
+// ────────────────────────────────────────────────────────────────────
+export const obtenerCatalogo = async (nombreLista) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/catalogos/${nombreLista}`);
+    const data = await response.json();
+    return data.items || [];
+  } catch (error) {
+    console.error('Error GET catálogo:', error);
+    return [];
+  }
+};
+
+export const agregarItemCatalogo = async (nombreLista, valor, etiqueta, usuarioRol) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/catalogos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombreLista, valor, etiqueta, usuarioRol })
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+export const eliminarItemCatalogo = async (id, usuarioRol) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/catalogos/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuarioRol })
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ────────────────────────────────────────────────────────────────────
+// 14. USUARIOS - Gestión de cuentas
+// ────────────────────────────────────────────────────────────────────
+export const obtenerUsuarios = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/usuarios`);
+    const data = await response.json();
+    return data.usuarios || [];
+  } catch (error) {
+    return [];
+  }
+};
+
+export const crearUsuario = async (payload) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/usuarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+export const toggleActivoUsuario = async (id, activo) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/usuarios/${id}/activo`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activo })
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ────────────────────────────────────────────────────────────────────
+// 15. REPORTES - Datos agregados
+// ────────────────────────────────────────────────────────────────────
+export const obtenerReportes = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reportes`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error);
+    return data;
+  } catch (error) {
+    console.error('Error GET reportes:', error);
+    return null;
   }
 };
 

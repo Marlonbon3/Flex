@@ -189,12 +189,25 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
     doc.setTextColor(...COLORS.dark);
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    
+
     checklist.forEach((item) => {
-      yPos = checkPageBreak(doc, yPos, 8);
-      const checkbox = item.state === 1 || item.state === true ? '☑' : '☐';
-      doc.text(checkbox + ' ' + item.desc, MARGIN + 2, yPos);
-      yPos += 6;
+      yPos = checkPageBreak(doc, yPos, 10);
+      const checked = item.state === 1 || item.state === true;
+
+      // Draw checkbox square manually (Unicode symbols no son soportados por jsPDF)
+      doc.setDrawColor(...COLORS.dark);
+      doc.setLineWidth(0.4);
+      doc.rect(MARGIN + 2, yPos - 3.5, 4, 4);
+      if (checked) {
+        doc.setLineWidth(0.7);
+        doc.line(MARGIN + 2.6, yPos - 1.5, MARGIN + 4, yPos - 0.2);
+        doc.line(MARGIN + 4, yPos - 0.2, MARGIN + 6.5, yPos - 3.8);
+      }
+      doc.setLineWidth(0.5);
+
+      doc.setTextColor(...COLORS.dark);
+      doc.text(item.desc, MARGIN + 8, yPos);
+      yPos += 7;
     });
     
     // Firma
@@ -217,97 +230,77 @@ export const generarPDFContenedor = (paso1Data, paso2Data, paso3Data, archivos) 
   addPageNumber(doc, pageNum);
   pageNum++;
   
-  // ============ HOJA 3: PASO 3 (Firma) ============
+  // ============ HOJA 3: RESUMEN PASO 3 ============
   doc.addPage();
-  yPos = createHeader(doc, 'Información Adicional', 'Paso 3: Datos de Descarga');
-  
-  if (paso3Data) {
-    yPos = addSection(doc, yPos, 'Descarga Completada');
-    yPos = addTwoColumnFields(doc, yPos, 'Descarga Completa', paso3Data.DescargaCompleta ? 'Sí' : 'No', 'Fecha Descarga', formatDate(paso3Data.FechaDescarga));
-    yPos = checkPageBreak(doc, yPos, 25);
-    
-    if (paso3Data.HoraDescarga) {
-      yPos = addField(doc, yPos, 'Hora Descarga', paso3Data.HoraDescarga);
-      yPos = checkPageBreak(doc, yPos, 25);
-    }
-    
-    if (paso3Data.InformacionAdicional) {
-      yPos = addSection(doc, yPos, 'Información Adicional');
-      doc.setTextColor(...COLORS.dark);
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      const info = doc.splitTextToSize(paso3Data.InformacionAdicional, CONTENT_WIDTH);
-      doc.text(info, MARGIN, yPos);
-      yPos += (info.length * 5) + 10;
-      yPos = checkPageBreak(doc, yPos, 25);
-    }
-    
-    if (paso3Data.ObservacionesFinales) {
-      yPos = addSection(doc, yPos, 'Observaciones Finales');
-      doc.setTextColor(...COLORS.dark);
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      const obs = doc.splitTextToSize(paso3Data.ObservacionesFinales, CONTENT_WIDTH);
-      doc.text(obs, MARGIN, yPos);
-    }
+  yPos = createHeader(doc, 'Documentos del Archivero', 'Paso 3: Imágenes y documentos adjuntos');
+
+  yPos = addSection(doc, yPos, 'Archivos adjuntos');
+  doc.setTextColor(...COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  const cantArchivos = archivos ? archivos.length : 0;
+  doc.text(`Total de archivos adjuntos: ${cantArchivos}`, MARGIN, yPos);
+  yPos += 6;
+  if (cantArchivos > 0) {
+    doc.text('Las imágenes se muestran en tamaño completo en las páginas siguientes.', MARGIN, yPos);
+    yPos += 6;
+    archivos.forEach((a, i) => {
+      yPos = checkPageBreak(doc, yPos, 8);
+      doc.setTextColor(...COLORS.text);
+      doc.text(`${i + 1}. ${a.NombreArchivo} (${a.TipoArchivo || 'imagen'})`, MARGIN + 4, yPos);
+      yPos += 6;
+    });
   }
-  
+
   addPageNumber(doc, pageNum);
   pageNum++;
   
-  // ============ HOJA 4+: DOCUMENTOS ============
+  // ============ HOJA 4+: DOCUMENTOS (una hoja por imagen, tamaño completo) ============
   if (archivos && archivos.length > 0) {
-    doc.addPage();
-    yPos = createHeader(doc, 'Documentos Adjuntos', 'Paso 3: Archivos Escaneados');
-    
-    yPos = addSection(doc, yPos, `Documentos (${archivos.length} archivo(s))`);
-    
     archivos.forEach((archivo, index) => {
-      yPos = checkPageBreak(doc, yPos, 60);
-      
-      doc.setTextColor(...COLORS.primary);
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'bold');
-      doc.text(`${index + 1}. ${archivo.NombreArchivo}`, MARGIN, yPos);
-      yPos += 6;
-      
-      doc.setTextColor(...COLORS.text);
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Tipo: ${archivo.TipoArchivo}`, MARGIN + 5, yPos);
-      yPos += 5;
-      doc.text(`Fecha: ${formatDate(archivo.FechaCreacion)}`, MARGIN + 5, yPos);
-      yPos += 8;
-      
-      // Renderizar imagen desde Base64
-      if (archivo.ContenidoBase64 && (archivo.TipoArchivo === 'imagen' || archivo.TipoArchivo === 'foto')) {
+      const mimeType = archivo.TipoArchivo || '';
+      const isImage = archivo.ContenidoBase64 && (
+        mimeType.startsWith('image/') ||
+        mimeType === 'imagen' ||
+        mimeType === 'foto'
+      );
+
+      doc.addPage();
+      pageNum++;
+
+      if (isImage) {
         try {
-          // Si no tiene prefijo data:, agregarlo
           let imageData = archivo.ContenidoBase64;
           if (!imageData.startsWith('data:')) {
-            imageData = 'data:image/jpeg;base64,' + imageData;
+            const mime = mimeType.startsWith('image/') ? mimeType : 'image/jpeg';
+            imageData = `data:${mime};base64,` + imageData;
           }
-          
-          // Renderizar imagen (ancho: 80mm, alto: 50mm)
-          doc.addImage(imageData, 'JPEG', MARGIN, yPos, 80, 50);
-          yPos += 55;
+          const format = imageData.includes('image/png') ? 'PNG' : 'JPEG';
+          // Imagen ocupa la hoja completa (formato archivero)
+          doc.addImage(imageData, format, 0, 0, PAGE_WIDTH, PAGE_HEIGHT, '', 'FAST');
         } catch (error) {
+          yPos = createHeader(doc, 'Documento Adjunto', `Archivo ${index + 1}`);
           doc.setTextColor(...COLORS.text);
-          doc.setFontSize(8);
-          doc.text('[Imagen no disponible o corrupta]', MARGIN + 5, yPos);
-          yPos += 10;
+          doc.setFontSize(9);
+          doc.text(`[Imagen no disponible: ${archivo.NombreArchivo}]`, MARGIN, yPos);
+          addPageNumber(doc, pageNum);
         }
-      } else if (archivo.TipoArchivo === 'documento' || archivo.TipoArchivo === 'pdf') {
+      } else {
+        yPos = createHeader(doc, 'Documento Adjunto', `Archivo ${index + 1}`);
+        doc.setTextColor(...COLORS.dark);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text(archivo.NombreArchivo, MARGIN, yPos);
+        yPos += 8;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
         doc.setTextColor(...COLORS.text);
-        doc.setFontSize(8);
-        doc.text('[PDF o Documento - Ver anexos]', MARGIN + 5, yPos);
-        yPos += 10;
+        doc.text(`Tipo: ${mimeType}`, MARGIN, yPos);
+        yPos += 6;
+        doc.text('[PDF o documento - ver archivo original]', MARGIN, yPos);
+        addPageNumber(doc, pageNum);
       }
-      
-      yPos += 5;
     });
-    
-    addPageNumber(doc, pageNum);
   }
   
   // Descargar PDF

@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { MdAdd, MdDownload } from 'react-icons/md'
+import { MdAdd, MdDownload, MdArchive, MdDelete } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
 import AgregarContenedor from './AgregarContenedor'
 import * as api from '../services/api'
+import { useAlert } from './AlertProvider'
 
 export default function Contenedores() {
+  const { toast, confirm } = useAlert()
   const [showFormModal, setShowFormModal] = useState(false)
   const [trailers, setTrailers] = useState([])
   const [loading, setLoading] = useState(true)
   const [contenedorSeleccionado, setContenedorSeleccionado] = useState(null)
   const [menuAbierto, setMenuAbierto] = useState(null)
 
-  // Cargar contenedores de la BD
   useEffect(() => {
     cargarContenedores()
   }, [])
@@ -21,20 +22,17 @@ export default function Contenedores() {
     try {
       setLoading(true)
       const contenedores = await api.obtenerTodosLosContenedores()
-      
-      // Filtrar solo los que están en proceso (Activo = true Y Status = 'En proceso' o NULL)
+
       const contenedoresActivos = contenedores.filter(c => c.Activo && (!c.Status || c.Status === 'En proceso'))
-      
-      // Deduplicar por paso1ID (prevenir duplicados por StrictMode)
+
       const vistosSet = new Set()
       const contenedoresDedupados = contenedoresActivos.filter(c => {
         if (vistosSet.has(c.Paso1ID)) return false
         vistosSet.add(c.Paso1ID)
         return true
       })
-      
-      // Transformar datos de BD al formato de tabla
-      const trailersMapeados = contenedoresDedupados.map((c, idx) => ({
+
+      const trailersMapeados = contenedoresDedupados.map((c) => ({
         paso1ID: c.Paso1ID,
         trailerNo: c.TrailerNo || 'N/A',
         tipo: c.TrailerType || 'N/A',
@@ -63,7 +61,6 @@ export default function Contenedores() {
   const handleCerrarModal = () => {
     setShowFormModal(false)
     setContenedorSeleccionado(null)
-    // Recargar contenedores después de cerrar el modal
     cargarContenedores()
   }
 
@@ -75,37 +72,37 @@ export default function Contenedores() {
 
   const handleArchivar = async (id, e) => {
     e.stopPropagation()
-    if (window.confirm('¿Estás seguro de que deseas archivar este contenedor?')) {
-      try {
-        const resultado = await api.archivarContenedor(id)
-        if (resultado.success) {
-          alert('Contenedor archivado exitosamente')
-          cargarContenedores()
-          setMenuAbierto(null)
-        } else {
-          alert('Error: ' + resultado.error)
-        }
-      } catch (error) {
-        alert('Error archivando: ' + error.message)
+    const ok = await confirm('¿Estás seguro de que deseas archivar este contenedor?')
+    if (!ok) return
+    try {
+      const resultado = await api.archivarContenedor(id)
+      if (resultado.success) {
+        toast('Contenedor archivado exitosamente', 'success')
+        cargarContenedores()
+        setMenuAbierto(null)
+      } else {
+        toast('Error: ' + resultado.error, 'error')
       }
+    } catch (error) {
+      toast('Error archivando: ' + error.message, 'error')
     }
   }
 
   const handleEliminar = async (id, e) => {
     e.stopPropagation()
-    if (window.confirm('¿Estás seguro? Esto eliminará el contenedor DE LA BD de forma permanente')) {
-      try {
-        const resultado = await api.eliminarContenedor(id)
-        if (resultado.success) {
-          alert('Contenedor eliminado exitosamente')
-          cargarContenedores()
-          setMenuAbierto(null)
-        } else {
-          alert('Error: ' + resultado.error)
-        }
-      } catch (error) {
-        alert('Error eliminando: ' + error.message)
+    const ok = await confirm('¿Estás seguro? Esto eliminará el contenedor de forma permanente')
+    if (!ok) return
+    try {
+      const resultado = await api.eliminarContenedor(id)
+      if (resultado.success) {
+        toast('Contenedor eliminado exitosamente', 'success')
+        cargarContenedores()
+        setMenuAbierto(null)
+      } else {
+        toast('Error: ' + resultado.error, 'error')
       }
+    } catch (error) {
+      toast('Error eliminando: ' + error.message, 'error')
     }
   }
 
@@ -147,13 +144,13 @@ export default function Contenedores() {
             {loading ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  Cargando contenedores... ⏳
+                  Cargando contenedores...
                 </td>
               </tr>
             ) : trailers.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                  No hay contenedores registrados 📭
+                  No hay contenedores registrados
                 </td>
               </tr>
             ) : (
@@ -171,8 +168,8 @@ export default function Contenedores() {
                   </td>
                   <td className="actions-cell">
                     <div className="menu-container">
-                      <button 
-                        className="action-btn" 
+                      <button
+                        className="action-btn"
                         onClick={(e) => {
                           e.stopPropagation()
                           setMenuAbierto(menuAbierto === trailer.paso1ID ? null : trailer.paso1ID)
@@ -183,17 +180,17 @@ export default function Contenedores() {
                       </button>
                       {menuAbierto === trailer.paso1ID && (
                         <div className="dropdown-menu">
-                          <button 
+                          <button
                             className="menu-option archivar"
                             onClick={(e) => handleArchivar(trailer.paso1ID, e)}
                           >
-                            📦 Archivar
+                            <MdArchive size={15} /> Archivar
                           </button>
-                          <button 
+                          <button
                             className="menu-option eliminar"
                             onClick={(e) => handleEliminar(trailer.paso1ID, e)}
                           >
-                            🗑️ Eliminar
+                            <MdDelete size={15} /> Eliminar
                           </button>
                         </div>
                       )}
@@ -211,8 +208,8 @@ export default function Contenedores() {
       </div>
 
       {showFormModal && (
-        <AgregarContenedor 
-          onClose={handleCerrarModal} 
+        <AgregarContenedor
+          onClose={handleCerrarModal}
           initialPaso1ID={contenedorSeleccionado?.paso1ID}
           contenedorData={contenedorSeleccionado}
         />

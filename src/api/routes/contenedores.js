@@ -14,13 +14,13 @@ const pool = require('../config/database.js');
 router.post('/api/contenedores', async (req, res) => {
   try {
     const {
-      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, comments,
-      qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA, 
+      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType, comments,
+      qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA,
       actualDate, itemType, aging, bookingNo, dateExitPort, poNo, usuarioID
     } = req.body;
 
     const request = pool.request();
-    
+
     // Insertar en ContenedoresPaso1
     const result = await request
       .input('TrailerNo', sql.NVarChar, trailerNo)
@@ -28,6 +28,7 @@ router.post('/api/contenedores', async (req, res) => {
       .input('SeaContainerType', sql.NVarChar, seaContainerType)
       .input('UsoEmbarques', sql.NVarChar, usoEmbarques)
       .input('PortOfEntry', sql.NVarChar, portOfEntry)
+      .input('LoadType', sql.NVarChar, loadType || null)
       .input('Comments', sql.NVarChar(sql.MAX), comments)
       .input('QtyPallets', sql.Int, qtyPallets || null)
       .input('EmptyDate', sql.Date, emptyDate || null)
@@ -44,12 +45,12 @@ router.post('/api/contenedores', async (req, res) => {
       .input('UsuarioCreadorID', sql.Int, usuarioID)
       .query(`
         INSERT INTO ContenedoresPaso1 (
-          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry, Comments,
+          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry, LoadType, Comments,
           QtyPallets, EmptyDate, SealSanLuis, DepartureDate, SealYuma, AgingA,
           ActualDate, ItemType, Aging, BookingNo, DateExitPort, PoNo, UsuarioCreadorID, Activo
         )
         VALUES (
-          @TrailerNo, @TrailerType, @SeaContainerType, @UsoEmbarques, @PortOfEntry, @Comments,
+          @TrailerNo, @TrailerType, @SeaContainerType, @UsoEmbarques, @PortOfEntry, @LoadType, @Comments,
           @QtyPallets, @EmptyDate, @SealSanLuis, @DepartureDate, @SealYuma, @AgingA,
           @ActualDate, @ItemType, @Aging, @BookingNo, @DateExitPort, @PoNo, @UsuarioCreadorID, 1
         );
@@ -386,11 +387,7 @@ router.get('/api/contenedores/:id', async (req, res) => {
           p2.Cond6,
           p2.Cond7,
           p2.Cond8,
-          p3.Paso3ID,
-          p3.InformacionAdicional,
-          p3.DescargaCompleta,
-          p3.FechaDescarga,
-          p3.HoraDescarga
+          p3.Paso3ID
         FROM ContenedoresPaso1 p1
         LEFT JOIN ContenedoresPaso2 p2 ON p1.Paso1ID = p2.Paso1ID
         LEFT JOIN ContenedoresPaso3 p3 ON p1.Paso1ID = p3.Paso1ID
@@ -429,7 +426,7 @@ router.patch('/api/contenedores/:id/archivar', async (req, res) => {
       .input('Paso1ID', sql.Int, id)
       .query(`
         UPDATE ContenedoresPaso1
-        SET Activo = 0
+        SET Activo = 0, Status = 'Completado'
         WHERE Paso1ID = @Paso1ID
       `);
 
@@ -564,13 +561,13 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, comments,
-      qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA, 
+      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType, comments,
+      qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA,
       actualDate, itemType, aging, bookingNo, dateExitPort, poNo, usuarioID
     } = req.body;
 
     const request = pool.request();
-    
+
     const result = await request
       .input('Paso1ID', sql.Int, id)
       .input('TrailerNo', sql.NVarChar, trailerNo)
@@ -578,6 +575,7 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
       .input('SeaContainerType', sql.NVarChar, seaContainerType)
       .input('UsoEmbarques', sql.NVarChar, usoEmbarques)
       .input('PortOfEntry', sql.NVarChar, portOfEntry)
+      .input('LoadType', sql.NVarChar, loadType || null)
       .input('Comments', sql.NVarChar(sql.MAX), comments)
       .input('QtyPallets', sql.Int, qtyPallets || null)
       .input('EmptyDate', sql.Date, emptyDate || null)
@@ -598,6 +596,7 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
           SeaContainerType = @SeaContainerType,
           UsoEmbarques = @UsoEmbarques,
           PortOfEntry = @PortOfEntry,
+          LoadType = @LoadType,
           Comments = @Comments,
           QtyPallets = @QtyPallets,
           EmptyDate = @EmptyDate,
@@ -651,7 +650,7 @@ router.post('/api/login', async (req, res) => {
       .query(`
         SELECT UsuarioID, NombreCompleto, Email, Rol, Activo
         FROM Usuarios
-        WHERE Email = @Email AND Contrasena = @Password AND Activo = 1
+        WHERE Email = @Email AND Contraseña = @Password AND Activo = 1
       `);
 
     // Nota: En producción, usar bcrypt para hashear contraseñas
@@ -661,7 +660,7 @@ router.post('/api/login', async (req, res) => {
       const userCheck = await pool.request()
         .input('Email', sql.NVarChar, email)
         .query(`
-          SELECT UsuarioID, NombreCompleto, Email, Rol, Activo, Contrasena
+          SELECT UsuarioID, NombreCompleto, Email, Rol, Activo, Contraseña
           FROM Usuarios
           WHERE Email = @Email
         `);
@@ -732,50 +731,121 @@ router.post('/api/login', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 3. GUARDAR INFORMACIÓN ADICIONAL (Paso 3)
+// CATÁLOGOS - CRUD de listas configurables
 // ────────────────────────────────────────────────────────────────────
-router.post('/api/paso3', async (req, res) => {
-  try {
-    const {
-      paso1ID, paso2ID, informacionAdicional, descargaCompleta,
-      fechaDescarga, horaDescarga, usuarioResponsableID, observacionesFinales, usuarioID
-    } = req.body;
 
-    const request = pool.request();
-    
-    const result = await request
-      .input('Paso1ID', sql.Int, paso1ID)
-      .input('Paso2ID', sql.Int, paso2ID || null)
-      .input('InformacionAdicional', sql.NVarChar(sql.MAX), informacionAdicional)
-      .input('DescargaCompleta', sql.Bit, descargaCompleta ? 1 : 0)
-      .input('FechaDescarga', sql.Date, fechaDescarga || null)
-      .input('HoraDescarga', sql.Time, horaDescarga || null)
-      .input('UsuarioResponsableID', sql.Int, usuarioResponsableID)
-      .input('ObservacionesFinales', sql.NVarChar(sql.MAX), observacionesFinales)
+// GET /api/catalogos/:lista - Obtener items de una lista
+router.get('/api/catalogos/:lista', async (req, res) => {
+  try {
+    const { lista } = req.params;
+    const result = await pool.request()
+      .input('NombreLista', sql.NVarChar, lista)
       .query(`
-        INSERT INTO ContenedoresPaso3 (
-          Paso1ID, Paso2ID, InformacionAdicional, DescargaCompleta,
-          FechaDescarga, HoraDescarga, UsuarioResponsableID, ObservacionesFinales
-        )
-        VALUES (
-          @Paso1ID, @Paso2ID, @InformacionAdicional, @DescargaCompleta,
-          @FechaDescarga, @HoraDescarga, @UsuarioResponsableID, @ObservacionesFinales
-        );
-        SELECT SCOPE_IDENTITY() as Paso3ID;
+        SELECT ListaID, NombreLista, Valor, Etiqueta, Orden
+        FROM CatalogosListas
+        WHERE NombreLista = @NombreLista AND Activo = 1
+        ORDER BY Orden, Etiqueta
       `);
+    res.json({ success: true, items: result.recordset });
+  } catch (error) {
+    console.error('Error GET catálogo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/catalogos - Agregar item a una lista (solo admin)
+router.post('/api/catalogos', async (req, res) => {
+  try {
+    const { nombreLista, valor, etiqueta, usuarioRol } = req.body;
+    if (!nombreLista || !valor || !etiqueta) {
+      return res.status(400).json({ success: false, error: 'nombreLista, valor y etiqueta son requeridos' });
+    }
+
+    const maxOrdenResult = await pool.request()
+      .input('NombreLista', sql.NVarChar, nombreLista)
+      .query(`SELECT ISNULL(MAX(Orden), 0) + 1 as NextOrden FROM CatalogosListas WHERE NombreLista = @NombreLista`);
+    const nextOrden = maxOrdenResult.recordset[0].NextOrden;
+
+    const result = await pool.request()
+      .input('NombreLista', sql.NVarChar, nombreLista)
+      .input('Valor', sql.NVarChar, valor)
+      .input('Etiqueta', sql.NVarChar, etiqueta)
+      .input('Orden', sql.Int, nextOrden)
+      .query(`
+        INSERT INTO CatalogosListas (NombreLista, Valor, Etiqueta, Orden)
+        VALUES (@NombreLista, @Valor, @Etiqueta, @Orden);
+        SELECT SCOPE_IDENTITY() as ListaID;
+      `);
+    res.json({ success: true, listaID: result.recordset[0].ListaID });
+  } catch (error) {
+    console.error('Error POST catálogo:', error);
+    const isDuplicate = error.message?.includes('UQ_Lista_Valor');
+    res.status(isDuplicate ? 409 : 500).json({
+      success: false,
+      error: isDuplicate ? 'Ya existe un item con ese valor en esta lista' : error.message
+    });
+  }
+});
+
+// DELETE /api/catalogos/:id - Eliminar item de una lista (solo admin)
+router.delete('/api/catalogos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.request()
+      .input('ListaID', sql.Int, id)
+      .query(`UPDATE CatalogosListas SET Activo = 0 WHERE ListaID = @ListaID`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error DELETE catálogo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// REPORTES - Datos agregados para dashboards
+// ────────────────────────────────────────────────────────────────────
+router.get('/api/reportes', async (req, res) => {
+  try {
+    const [statusRes, turnoRes, origenRes, palletsRes, mesRes, totalRes, empresasRes] = await Promise.all([
+      pool.request().query(`SELECT ISNULL(Status, 'Activo') as Status, COUNT(*) as Total FROM ContenedoresPaso1 GROUP BY Status`),
+      pool.request().query(`SELECT ISNULL(Turno, 'Sin turno') as Turno, COUNT(*) as Total FROM ContenedoresPaso2 GROUP BY Turno ORDER BY Turno`),
+      pool.request().query(`SELECT ISNULL(Origen, 'Sin origen') as Origen, COUNT(*) as Total FROM ContenedoresPaso2 WHERE Origen IS NOT NULL AND Origen != '' GROUP BY Origen ORDER BY Total DESC`),
+      pool.request().query(`SELECT ISNULL(SUM(TotalPallets), 0) as TotalPallets FROM ContenedoresPaso2`),
+      pool.request().query(`
+        SELECT FORMAT(FechaCreacion, 'yyyy-MM') as Mes, COUNT(*) as Total
+        FROM ContenedoresPaso1
+        WHERE FechaCreacion >= DATEADD(MONTH, -5, GETDATE())
+        GROUP BY FORMAT(FechaCreacion, 'yyyy-MM')
+        ORDER BY Mes
+      `),
+      pool.request().query(`SELECT COUNT(*) as Total FROM ContenedoresPaso1`),
+      pool.request().query(`SELECT Empresas FROM ContenedoresPaso2 WHERE Empresas IS NOT NULL AND Empresas != '[]' AND Empresas != ''`)
+    ]);
+
+    const empresasCount = {};
+    empresasRes.recordset.forEach(row => {
+      try {
+        const arr = JSON.parse(row.Empresas);
+        arr.forEach(e => { empresasCount[e] = (empresasCount[e] || 0) + 1; });
+      } catch {}
+    });
+    const porEmpresa = Object.entries(empresasCount)
+      .map(([Empresa, Total]) => ({ Empresa, Total }))
+      .sort((a, b) => b.Total - a.Total);
 
     res.json({
       success: true,
-      mensaje: 'Información guardada en Paso 3',
-      paso3ID: result.recordset[0].Paso3ID
+      porStatus: statusRes.recordset,
+      porTurno: turnoRes.recordset,
+      porOrigen: origenRes.recordset,
+      palletsTotales: palletsRes.recordset[0]?.TotalPallets || 0,
+      porMes: mesRes.recordset,
+      totalContenedores: totalRes.recordset[0]?.Total || 0,
+      porEmpresa
     });
-
   } catch (error) {
-    console.error('Error Paso 3:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('Error GET reportes:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -908,6 +978,70 @@ router.get('/api/archivos/:paso1ID', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// USUARIOS - Gestión de cuentas
+// ────────────────────────────────────────────────────────────────────
+
+// GET /api/usuarios
+router.get('/api/usuarios', async (req, res) => {
+  try {
+    const result = await pool.request().query(`
+      SELECT UsuarioID, NombreCompleto, Email, Rol, Activo, UltimoAcceso
+      FROM Usuarios
+      ORDER BY NombreCompleto
+    `);
+    res.json({ success: true, usuarios: result.recordset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/usuarios
+router.post('/api/usuarios', async (req, res) => {
+  try {
+    const { nombreCompleto, email, contrasena, rol } = req.body;
+    if (!nombreCompleto || !email || !contrasena || !rol) {
+      return res.status(400).json({ success: false, error: 'Todos los campos son requeridos' });
+    }
+
+    const existe = await pool.request()
+      .input('Email', sql.NVarChar, email)
+      .query(`SELECT 1 FROM Usuarios WHERE Email = @Email`);
+    if (existe.recordset.length > 0) {
+      return res.status(409).json({ success: false, error: 'Ya existe un usuario con ese email' });
+    }
+
+    const result = await pool.request()
+      .input('NombreCompleto', sql.NVarChar, nombreCompleto)
+      .input('Email', sql.NVarChar, email)
+      .input('Contrasena', sql.NVarChar, contrasena)
+      .input('Rol', sql.NVarChar, rol)
+      .query(`
+        INSERT INTO Usuarios (NombreCompleto, Email, Contraseña, Rol, Activo)
+        VALUES (@NombreCompleto, @Email, @Contrasena, @Rol, 1);
+        SELECT SCOPE_IDENTITY() as UsuarioID;
+      `);
+    res.json({ success: true, usuarioID: result.recordset[0].UsuarioID });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PATCH /api/usuarios/:id/activo - Activar/desactivar usuario
+router.patch('/api/usuarios/:id/activo', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activo } = req.body;
+    await pool.request()
+      .input('UsuarioID', sql.Int, id)
+      .input('Activo', sql.Bit, activo ? 1 : 0)
+      .query(`UPDATE Usuarios SET Activo = @Activo WHERE UsuarioID = @UsuarioID`);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

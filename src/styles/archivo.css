@@ -220,9 +220,27 @@
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.action-btn.pdf-btn { color: #0A46FF; }
+.action-btn.pdf-btn:hover { color: #0533CC; background: #e8f0fe; border-radius: 6px; }
+.action-btn.edit-btn { color: #7b8aa3; }
+.action-btn.edit-btn:hover { color: #f59e0b; background: #fef3c7; border-radius: 6px; }
+.action-btn.delete-btn { color: #eb5064; }
+.action-btn.delete-btn:hover { color: #d43f52; background: #fee2e2; border-radius: 6px; }
 
 .actions .icon {
   cursor: pointer;

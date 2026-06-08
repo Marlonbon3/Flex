@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Configuración de conexión a SQL Server con usuario sa
 const config = {
-  server: process.env.DB_SERVER || 'MARLONBOY\\SQLEXPRESS',
+  server: process.env.DB_SERVER || 'MSI\\SQLEXPRESS',
   database: process.env.DB_NAME || 'FlexWebApp',
   authentication: {
     type: 'default',

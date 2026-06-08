@@ -1,0 +1,182 @@
+/* ─── Toast Wrap ─── */
+.toast-wrap {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+/* ─── Toast ─── */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  min-width: 300px;
+  max-width: 400px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-left: 5px solid;
+  animation: toast-in 0.3s cubic-bezier(0.2, 0.8, 0.4, 1) both;
+  pointer-events: all;
+}
+
+.toast-success { border-color: #22c55e; }
+.toast-error   { border-color: #ef4444; }
+.toast-warning { border-color: #f59e0b; }
+.toast-info    { border-color: #3b82f6; }
+
+/* ─── Icon Circle ─── */
+.t-icon {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.toast-success .t-icon { background: #22c55e; }
+.toast-success .t-icon::before { content: '✓'; }
+
+.toast-error .t-icon { background: #ef4444; }
+.toast-error .t-icon::before { content: '✕'; }
+
+.toast-warning .t-icon { background: #f59e0b; }
+.toast-warning .t-icon::before { content: '!'; }
+
+.toast-info .t-icon { background: #3b82f6; }
+.toast-info .t-icon::before { content: 'i'; font-style: italic; }
+
+/* ─── Message ─── */
+.t-msg {
+  flex: 1;
+  font-size: 14px;
+  color: #1e293b;
+  line-height: 1.45;
+}
+
+/* ─── Close ─── */
+.t-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.t-close:hover { color: #475569; }
+
+/* ─── Confirm Overlay ─── */
+.dlg-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease;
+}
+
+/* ─── Confirm Box ─── */
+.dlg-box {
+  background: #fff;
+  border-radius: 18px;
+  padding: 36px 32px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  animation: pop-in 0.25s cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+.dlg-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #fef3c7;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+.dlg-icon::before { content: '⚠'; }
+
+.dlg-msg {
+  font-size: 16px;
+  color: #334155;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+/* ─── Dialog Buttons ─── */
+.dlg-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.dlg-cancel {
+  padding: 11px 28px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dlg-cancel:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+.dlg-confirm {
+  padding: 11px 28px;
+  border: none;
+  border-radius: 10px;
+  background: #0A46FF;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dlg-confirm:hover { background: #0838cc; }
+
+/* ─── Animations ─── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(36px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 480px) {
+  .toast-wrap { top: 12px; right: 12px; left: 12px; }
+  .toast { min-width: 0; max-width: 100%; }
+  .dlg-box { padding: 28px 20px; border-radius: 14px; }
+}

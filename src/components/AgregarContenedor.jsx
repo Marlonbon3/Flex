@@ -3,8 +3,10 @@ import '../styles/agregarContenedor.css';
 import { MdArrowBack, MdDelete, MdImage } from 'react-icons/md';
 import { FiCamera, FiUpload, FiX } from 'react-icons/fi';
 import * as api from '../services/api';
+import { useAlert } from './AlertProvider';
 
 export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorData }) {
+  const { toast } = useAlert();
   // Iniciar en Paso 1 por defecto, será ajustado en el useEffect
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
@@ -17,6 +19,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     seaContainerType: '',
     usoEmbarques: '',
     portOfEntry: '',
+    loadType: '',
     comments: '',
 
     // Paso 2: Inspección de Trailer/Contenedor
@@ -63,6 +66,17 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
   const [attachments, setAttachments] = useState([]);
   const [paso1IDState, setPaso1IDState] = useState(initialPaso1ID || null);
   const [loading, setLoading] = useState(false);
+  const [catalogos, setCatalogos] = useState({
+    trailerType: [],
+    usoEmbarques: [],
+    portOfEntry: [],
+    loadType: [],
+    responsable: [],
+    poNo: [],
+    empresas: [],
+    origen: [],
+    longitudContenedor: []
+  });
   const signatureCanvasRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -72,6 +86,26 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
       ...prev,
       [name]: value
     }));
+  };
+
+  const validarPaso1 = () => {
+    if (!formData.trailerNo.trim()) {
+      toast('TRAILER NO. es requerido', 'error');
+      return false;
+    }
+    if (!formData.trailerType) {
+      toast('TRAILER TYPE es requerido', 'error');
+      return false;
+    }
+    if (!formData.actualDate) {
+      toast('ACTUAL DATE es requerido', 'error');
+      return false;
+    }
+    if (!formData.poNo) {
+      toast('PO.# es requerido', 'error');
+      return false;
+    }
+    return true;
   };
 
   const handleFileChange = (e) => {
@@ -85,8 +119,11 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
   const handleClearSignature = () => {
     if (signatureCanvasRef.current) {
-      const context = signatureCanvasRef.current.getContext('2d');
-      context.clearRect(0, 0, signatureCanvasRef.current.width, signatureCanvasRef.current.height);
+      const canvas = signatureCanvasRef.current;
+      const context = canvas.getContext('2d');
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      setFormData(prev => ({ ...prev, firmaResponsable: '' }));
     }
   };
 
@@ -97,7 +134,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
         ...prev,
         firmaResponsable: signatureDataUrl
       }));
-      alert('Firma guardada correctamente');
+      toast('Firma guardada correctamente', 'success');
     }
   };
 
@@ -201,6 +238,26 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
       canvas.removeEventListener('touchend', stopDrawing);
       window.removeEventListener('resize', handleResize);
     };
+  }, [currentStep]);
+
+  // Cargar catálogos de listas configurables
+  React.useEffect(() => {
+    const cargarCatalogos = async () => {
+      const listas = ['trailerType', 'usoEmbarques', 'portOfEntry', 'loadType', 'responsable', 'poNo', 'empresas', 'origen', 'longitudContenedor'];
+      const resultados = await Promise.all(listas.map(l => api.obtenerCatalogo(l)));
+      setCatalogos({
+        trailerType: resultados[0],
+        usoEmbarques: resultados[1],
+        portOfEntry: resultados[2],
+        loadType: resultados[3],
+        responsable: resultados[4],
+        poNo: resultados[5],
+        empresas: resultados[6],
+        origen: resultados[7],
+        longitudContenedor: resultados[8]
+      });
+    };
+    cargarCatalogos();
   }, []);
 
   // Pre-cargar datos si hay un contenedor existente
@@ -224,6 +281,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             seaContainerType: datosCompletos.SeaContainerType || '',
             usoEmbarques: datosCompletos.UsoEmbarques || '',
             portOfEntry: datosCompletos.PortOfEntry || '',
+            loadType: datosCompletos.LoadType || '',
             comments: datosCompletos.Comments || '',
             qtyPallets: datosCompletos.QtyPallets || '',
             emptyDate: datosCompletos.EmptyDate ? new Date(datosCompletos.EmptyDate).toISOString().split('T')[0] : '',
@@ -293,6 +351,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           setLoading(true);
           
           if (currentStep === 1) {
+            if (!validarPaso1()) { setLoading(false); return; }
             // Guardar Paso 1 antes de avanzar
             let response;
             if (paso1IDState) {
@@ -305,18 +364,18 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             }
             
             if (!response.success) {
-              alert('❌ Error al guardar Paso 1. Verifica los datos e intenta de nuevo.');
+              toast('Error al guardar Paso 1. Verifica los datos e intenta de nuevo.', 'error');
               setLoading(false);
               return;
             }
           } else if (currentStep === 2) {
             // Guardar Paso 2 antes de avanzar
             if (!paso1IDState) {
-              alert('⚠️ Primero debes guardar el Paso 1');
+              toast('Primero debes guardar el Paso 1', 'warning');
               setLoading(false);
               return;
             }
-            
+
             let horaLimpia = null;
             if (formData.horaRegistro && formData.horaRegistro.trim() !== '') {
               const match = formData.horaRegistro.match(/(\d{1,2}):(\d{2})/);
@@ -334,7 +393,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             const response = await api.guardarPaso2(inspeccionData, usuarioID);
             
             if (!response.success) {
-              alert('❌ Error al guardar Paso 2. Verifica los datos e intenta de nuevo.');
+              toast('Error al guardar Paso 2. Verifica los datos e intenta de nuevo.', 'error');
               setLoading(false);
               return;
             }
@@ -342,7 +401,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             await api.actualizarEstado(paso1IDState, 2, true);
           }
         } catch (error) {
-          alert('❌ Error: ' + error.message);
+          toast('Error: ' + error.message, 'error');
           setLoading(false);
           return;
         } finally {
@@ -371,6 +430,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
       const usuarioID = usuarioActual?.id || 1;
 
       if (currentStep === 1) {
+        if (!validarPaso1()) { setLoading(false); return; }
         // PASO 1: Guardar o actualizar información básica del contenedor
         let response;
         
@@ -378,24 +438,24 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           // Es edición - actualizar contenedor existente
           response = await api.actualizarPaso1(paso1IDState, formData, usuarioID);
           if (response.success) {
-            alert('[OK] Paso 1 actualizado exitosamente en BD');
+            toast('Paso 1 actualizado exitosamente', 'success');
           } else {
-            alert('[ERROR] Error al actualizar Paso 1: ' + api.procesarError(response));
+            toast('Error al actualizar Paso 1: ' + api.procesarError(response), 'error');
           }
         } else {
           // Es nuevo - crear nuevo contenedor
           response = await api.guardarPaso1(formData, usuarioID);
           if (response.success && response.paso1ID) {
             setPaso1IDState(response.paso1ID);
-            alert('[OK] Paso 1 guardado exitosamente en BD');
+            toast('Paso 1 guardado exitosamente', 'success');
           } else {
-            alert('[ERROR] Error al guardar Paso 1: ' + api.procesarError(response));
+            toast('Error al guardar Paso 1: ' + api.procesarError(response), 'error');
           }
         }
       } else if (currentStep === 2) {
         // PASO 2: Guardar inspección + firma
         if (!paso1IDState) {
-          alert('⚠️ Primero debes guardar el Paso 1');
+          toast('Primero debes guardar el Paso 1', 'warning');
           setLoading(false);
           return;
         }
@@ -415,47 +475,40 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
         };
         const response = await api.guardarPaso2(inspeccionData, usuarioID);
         if (response.success) {
-          alert('[OK] Paso 2 guardado exitosamente en BD');
+          toast('Paso 2 guardado exitosamente', 'success');
           await api.actualizarEstado(paso1IDState, 2, true);
         } else {
-          alert('[ERROR] Error al guardar Paso 2: ' + (response.error || 'Sin detalles'));
+          toast('Error al guardar Paso 2: ' + (response.error || 'Sin detalles'), 'error');
         }
       } else if (currentStep === 3) {
         // PASO 3: Guardar documentos
         const paso1IdFinal = paso1IDState || paso1ID;
-        
-        console.log('[INFO] [PASO 3] Intentando guardar...');
-        console.log('   - paso1ID:', paso1IdFinal);
-        console.log('   - attachments.length:', attachments.length);
-        
+
         if (!paso1IdFinal) {
-          alert('Error: No se encontró el ID del contenedor. Guarda primero el Paso 1');
+          toast('No se encontró el ID del contenedor. Guarda primero el Paso 1', 'error');
           setLoading(false);
           return;
         }
 
         if (attachments.length === 0) {
-          alert('Sube al menos un documento para completar el Paso 3');
+          toast('Sube al menos un documento para completar el Paso 3', 'warning');
           setLoading(false);
           return;
         }
 
-        console.log('[INFO] Enviando Paso 3 al servidor...');
         const response = await api.guardarPaso3(paso1IdFinal, attachments, usuarioID);
-        console.log('[RESPONSE] Respuesta Paso 3:', response);
-        
+
         if (response.success) {
-          alert('¡Contenedor completado y archivado automáticamente!');
-          // Esperar un poco y cerrar el modal para que actualice la lista
+          toast('¡Contenedor completado y archivado!', 'success');
           setTimeout(() => {
             onClose();
           }, 1000);
         } else {
-          alert('Error al guardar documentos: ' + (response.error || 'Sin detalles'));
+          toast('Error al guardar documentos: ' + (response.error || 'Sin detalles'), 'error');
         }
       }
     } catch (error) {
-      alert('Error: ' + error.message);
+      toast('Error: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -546,10 +599,9 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                     required
                   >
                     <option value="">Selecciona el tipo de trailer</option>
-                    <option value="flatbed">Flatbed</option>
-                    <option value="refrigerated">Refrigerated</option>
-                    <option value="tanker">Tanker</option>
-                    <option value="van">Van</option>
+                    {catalogos.trailerType.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -574,22 +626,40 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                     onChange={handleInputChange}
                   >
                     <option value="">Selecciona una opción</option>
-                    <option value="export">Exportación</option>
-                    <option value="import">Importación</option>
-                    <option value="storage">Almacenamiento</option>
+                    {catalogos.usoEmbarques.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="portOfEntry">PORT OF ENTRY</label>
-                  <input
+                  <select
                     id="portOfEntry"
-                    type="text"
                     name="portOfEntry"
-                    placeholder="Ingresa el puerto de entrada"
                     value={formData.portOfEntry}
                     onChange={handleInputChange}
-                  />
+                  >
+                    <option value="">Selecciona el puerto de entrada</option>
+                    {catalogos.portOfEntry.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="loadType">LOAD TYPE</label>
+                  <select
+                    id="loadType"
+                    name="loadType"
+                    value={formData.loadType}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Selecciona el tipo de carga</option>
+                    {catalogos.loadType.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group full-width">
@@ -740,15 +810,18 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                 <div className="form-group">
                   <label htmlFor="poNo">PO.# <span className="required">*</span></label>
-                  <input
+                  <select
                     id="poNo"
-                    type="text"
                     name="poNo"
-                    placeholder="Ingresa el número de PO"
                     value={formData.poNo}
                     onChange={handleInputChange}
                     required
-                  />
+                  >
+                    <option value="">Selecciona el P.O.</option>
+                    {catalogos.poNo.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Attachments */}
@@ -972,16 +1045,16 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                 <div className="inspection-section">
                   <h3 className="section-title">Longitud de Contenedor</h3>
                   <div className="radio-group-inline">
-                    {["20'", "40'", "48'", "53'", "Otro"].map((length) => (
-                      <label key={length}>
+                    {catalogos.longitudContenedor.map(item => (
+                      <label key={item.ListaID}>
                         <input
                           type="radio"
                           name="longitudContenedor"
-                          value={length}
-                          checked={formData.longitudContenedor === length}
+                          value={item.Valor}
+                          checked={formData.longitudContenedor === item.Valor}
                           onChange={handleInputChange}
                         />
-                        {length}
+                        {item.Etiqueta}
                       </label>
                     ))}
                   </div>
@@ -991,16 +1064,16 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                 <div className="inspection-section">
                   <h3 className="section-title">ORIGEN (ARRIBO)</h3>
                   <div className="radio-group-inline">
-                    {['Aire', 'Marítimo', 'Nacional', 'Importación'].map((orig) => (
-                      <label key={orig}>
+                    {catalogos.origen.map(item => (
+                      <label key={item.ListaID}>
                         <input
                           type="radio"
                           name="origen"
-                          value={orig}
-                          checked={formData.origen === orig}
+                          value={item.Valor}
+                          checked={formData.origen === item.Valor}
                           onChange={handleInputChange}
                         />
-                        {orig}
+                        {item.Etiqueta}
                       </label>
                     ))}
                   </div>
@@ -1010,26 +1083,20 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                 <div className="inspection-section">
                   <h3 className="section-title">EMPRESAS</h3>
                   <div className="checkbox-group-inline">
-                    {['BOSE', 'DYSON', 'NESTLE'].map((company) => (
-                      <label key={company}>
+                    {catalogos.empresas.map(item => (
+                      <label key={item.ListaID}>
                         <input
                           type="checkbox"
-                          checked={formData.empresas.includes(company)}
+                          checked={formData.empresas.includes(item.Valor)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFormData(prev => ({
-                                ...prev,
-                                empresas: [...prev.empresas, company]
-                              }));
+                              setFormData(prev => ({ ...prev, empresas: [...prev.empresas, item.Valor] }));
                             } else {
-                              setFormData(prev => ({
-                                ...prev,
-                                empresas: prev.empresas.filter(c => c !== company)
-                              }));
+                              setFormData(prev => ({ ...prev, empresas: prev.empresas.filter(c => c !== item.Valor) }));
                             }
                           }}
                         />
-                        {company}
+                        {item.Etiqueta}
                       </label>
                     ))}
                   </div>
@@ -1038,7 +1105,22 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                 {/* Responsable del Proceso de Descarga - Firma */}
                 <div className="inspection-section full-width">
                   <h3 className="section-title">Firma del Responsable de Descarga</h3>
-                  
+
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label htmlFor="responsableDescarga">RESPONSIBLE</label>
+                    <select
+                      id="responsableDescarga"
+                      name="responsableDescarga"
+                      value={formData.responsableDescarga}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Selecciona el responsable</option>
+                      {catalogos.responsable.map(item => (
+                        <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="signature-container">
                     <p className="signature-label">Firma (escribir con el dedo en la tableta)</p>
                     <div style={{ width: '100%' }}>

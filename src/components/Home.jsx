@@ -1,38 +1,49 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination, Autoplay } from 'swiper/modules'
 import { MdHome, MdLocalShipping, MdFolder, MdBarChart, MdPeople } from 'react-icons/md'
-import { IoNotifications, IoSettingsSharp, IoHelpCircleSharp } from 'react-icons/io5'
-import { MdLogout, MdMenu, MdClose } from 'react-icons/md'
+import { MdLogout } from 'react-icons/md'
+import * as api from '../services/api'
 import Contenedores from './Contenedores'
 import Archivo from './Archivo'
 import EntregaTurno from './EntregaTurno'
+import Reportes from './Reportes'
+import Admin from './Admin'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
 import '../styles/home.css'
 
+function getInitials(usuario) {
+  if (!usuario) return 'U'
+  if (usuario.nombre) {
+    const parts = usuario.nombre.trim().split(' ')
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : parts[0].substring(0, 2).toUpperCase()
+  }
+  if (usuario.email) return usuario.email.substring(0, 2).toUpperCase()
+  return 'U'
+}
+
 export default function Home({ tab = 'inicio' }) {
   const navigate = useNavigate()
   const [activeMenu, setActiveMenu] = useState(tab)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [usuario] = useState(() => api.obtenerUsuarioActual())
 
   useEffect(() => {
     setActiveMenu(tab)
   }, [tab])
 
   const handleLogout = () => {
+    api.logoutUsuario()
     navigate('/')
   }
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen)
-  }
-
-  const closeMenu = () => {
-    setMenuOpen(false)
-  }
+  const toggleMenu = () => setMenuOpen(!menuOpen)
+  const closeMenu = () => setMenuOpen(false)
 
   const cambiarTab = (nuevoTab) => {
     setActiveMenu(nuevoTab)
@@ -65,7 +76,6 @@ export default function Home({ tab = 'inicio' }) {
         <div className="sidebar-logo">
           <img src="/logo.png" alt="Flex" className="logo-small" />
         </div>
-
         <nav className="sidebar-menu">
           <button
             className={`menu-item ${activeMenu === 'inicio' ? 'active' : ''}`}
@@ -102,6 +112,15 @@ export default function Home({ tab = 'inicio' }) {
             <MdPeople className="menu-icon" />
             <span className="menu-text">Entrega de turno</span>
           </button>
+          {usuario?.rol?.toLowerCase() === 'admin' && (
+            <button
+              className={`menu-item ${activeMenu === 'admin' ? 'active' : ''}`}
+              onClick={() => cambiarTab('admin')}
+            >
+              <MdBarChart className="menu-icon" />
+              <span className="menu-text">Administración</span>
+            </button>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -117,8 +136,10 @@ export default function Home({ tab = 'inicio' }) {
       {/* Main Content */}
       <main className="main-content">
         <header className="top-bar">
-          <button className="menu-toggle" onClick={toggleMenu}>
-            {menuOpen ? <MdClose /> : <MdMenu />}
+          <button className={`menu-toggle ${menuOpen ? 'open' : ''}`} onClick={toggleMenu} aria-label="Menú">
+            <span className="hb-line" />
+            <span className="hb-line" />
+            <span className="hb-line" />
           </button>
           <div className="header-left">
             <div>
@@ -127,6 +148,7 @@ export default function Home({ tab = 'inicio' }) {
                 {activeMenu === 'contenedores' && 'Trailers Flow Management'}
                 {activeMenu === 'archivo' && 'Archivo'}
                 {activeMenu === 'reportes' && 'Reportes'}
+                {activeMenu === 'admin' && 'Administración'}
                 {activeMenu === 'turno' && 'Entrega de Turno'}
               </h1>
               {activeMenu === 'contenedores' && (
@@ -135,16 +157,9 @@ export default function Home({ tab = 'inicio' }) {
             </div>
           </div>
           <div className="header-right">
-            <button className="icon-btn" title="Notificaciones">
-              <IoNotifications />
+            <button className="user-btn" title={usuario?.nombre || usuario?.email || 'Usuario'}>
+              {getInitials(usuario)}
             </button>
-            <button className="icon-btn" title="Configuración">
-              <IoSettingsSharp />
-            </button>
-            <button className="icon-btn" title="Ayuda">
-              <IoHelpCircleSharp />
-            </button>
-            <button className="user-btn">JC</button>
           </div>
         </header>
 
@@ -228,10 +243,10 @@ export default function Home({ tab = 'inicio' }) {
           )}
 
           {activeMenu === 'contenedores' && <Contenedores />}
-
           {activeMenu === 'archivo' && <Archivo />}
-
+          {activeMenu === 'reportes' && <Reportes />}
           {activeMenu === 'turno' && <EntregaTurno />}
+          {activeMenu === 'admin' && <Admin />}
         </div>
 
         {/* Footer */}

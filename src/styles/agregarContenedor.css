@@ -717,6 +717,10 @@
   max-width: 100%;
 }
 
+.scan-section.full-width {
+  grid-column: 1 / -1;
+}
+
 .scan-buttons-container {
   display: grid;
   grid-template-columns: 1fr;

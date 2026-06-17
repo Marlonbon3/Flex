@@ -875,6 +875,11 @@
   color: #7b8aa3;
 }
 
+.document-size.doc-guardado {
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .remove-document {
   padding: 8px 12px;
   background: none;

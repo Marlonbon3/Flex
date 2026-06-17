@@ -46,6 +46,30 @@
   gap: 8px;
 }
 
+.filter-group-fechas {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.filter-group-fechas .filter-btn {
+  align-self: flex-end;
+}
+
+.fecha-rango-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fecha-rango-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7b8aa3;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .date-input {
   padding: 8px 12px;
   border: 1px solid #dae2ea;
@@ -233,6 +257,27 @@
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+}
+
+.estado-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.estado-badge.completo {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.estado-badge.incompleto {
+  background: #fef3c7;
+  color: #d97706;
 }
 
 .action-btn.pdf-btn { color: #0A46FF; }

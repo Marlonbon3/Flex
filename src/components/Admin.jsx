@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import '../styles/admin.css'
 import * as api from '../services/api'
 import { useAlert } from './AlertProvider'
-import { MdDelete, MdAdd, MdPerson, MdPersonOff } from 'react-icons/md'
+import { MdDelete, MdAdd, MdPerson, MdPersonOff, MdVisibility, MdVisibilityOff } from 'react-icons/md'
 import { FiRefreshCw, FiList, FiUsers } from 'react-icons/fi'
 
 const LISTAS = [
@@ -247,7 +247,7 @@ export default function Admin() {
                     className="admin-toggle-pass"
                     onClick={() => setMostrarContrasena(p => !p)}
                   >
-                    {mostrarContrasena ? '🙈' : '👁️'}
+                    {mostrarContrasena ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
                   </button>
                 </div>
               </div>

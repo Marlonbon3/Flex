@@ -3,6 +3,8 @@ import '../styles/agregarContenedor.css';
 import { MdArrowBack, MdDelete, MdImage } from 'react-icons/md';
 import { FiCamera, FiUpload, FiX } from 'react-icons/fi';
 import * as api from '../services/api';
+import { obtenerArchivos, eliminarArchivo } from '../services/api';
+import DatePickerTablet from './DatePickerTablet';
 import { useAlert } from './AlertProvider';
 
 export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorData }) {
@@ -64,6 +66,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
   });
 
   const [attachments, setAttachments] = useState([]);
+  const [archivosExistentes, setArchivosExistentes] = useState([]);
   const [paso1IDState, setPaso1IDState] = useState(initialPaso1ID || null);
   const [loading, setLoading] = useState(false);
   const [catalogos, setCatalogos] = useState({
@@ -340,6 +343,23 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     cargarDatos();
   }, [initialPaso1ID]);
 
+  React.useEffect(() => {
+    const id = paso1IDState || initialPaso1ID;
+    if (currentStep === 3 && id) {
+      obtenerArchivos(id).then(setArchivosExistentes);
+    }
+  }, [currentStep, paso1IDState, initialPaso1ID]);
+
+  const handleEliminarArchivoExistente = async (archivoID) => {
+    const result = await eliminarArchivo(archivoID);
+    if (result.success) {
+      setArchivosExistentes(prev => prev.filter(a => a.ArchivoID !== archivoID));
+      toast('Documento eliminado', 'success');
+    } else {
+      toast('Error al eliminar: ' + (result.error || 'Error desconocido'), 'error');
+    }
+  };
+
   const handleNext = async () => {
     if (currentStep < totalSteps) {
       // En Paso 1 y 2, guardar antes de avanzar
@@ -467,8 +487,15 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           }
         }
 
+        // Auto-capturar firma del canvas si el usuario no la guardó manualmente
+        let firmaFinal = formData.firmaResponsable;
+        if (!firmaFinal && signatureCanvasRef.current) {
+          firmaFinal = signatureCanvasRef.current.toDataURL('image/png');
+        }
+
         const inspeccionData = {
           ...formData,
+          firmaResponsable: firmaFinal,
           horaRegistro: horaLimpia,
           empresas: formData.empresas || [],
           paso1ID: paso1IDState
@@ -693,9 +720,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                 <div className="form-group">
                   <label htmlFor="emptyDate">EMPTY DATE</label>
-                  <input
+                  <DatePickerTablet
                     id="emptyDate"
-                    type="date"
                     name="emptyDate"
                     value={formData.emptyDate}
                     onChange={handleInputChange}
@@ -716,9 +742,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                 <div className="form-group">
                   <label htmlFor="departureDate">DEPARTURE DATE</label>
-                  <input
+                  <DatePickerTablet
                     id="departureDate"
-                    type="date"
                     name="departureDate"
                     value={formData.departureDate}
                     onChange={handleInputChange}
@@ -751,13 +776,11 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                 <div className="form-group">
                   <label htmlFor="actualDate">ACTUAL DATE <span className="required">*</span></label>
-                  <input
+                  <DatePickerTablet
                     id="actualDate"
-                    type="date"
                     name="actualDate"
                     value={formData.actualDate}
                     onChange={handleInputChange}
-                    required
                   />
                 </div>
 
@@ -799,9 +822,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                 <div className="form-group">
                   <label htmlFor="dateExitPort">DATE EXIT OF PORT</label>
-                  <input
+                  <DatePickerTablet
                     id="dateExitPort"
-                    type="date"
                     name="dateExitPort"
                     value={formData.dateExitPort}
                     onChange={handleInputChange}
@@ -915,9 +937,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
                   <div className="form-group">
                     <label htmlFor="fechaLlegada">FECHA LLEGADA</label>
-                    <input
+                    <DatePickerTablet
                       id="fechaLlegada"
-                      type="date"
                       name="fechaLlegada"
                       value={formData.fechaLlegada}
                       onChange={handleInputChange}
@@ -1198,9 +1219,38 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                     />
                   </div>
 
+                  {archivosExistentes.length > 0 && (
+                    <div className="scanned-documents">
+                      <h3 className="section-title">Documentos guardados ({archivosExistentes.length})</h3>
+                      <div className="documents-list">
+                        {archivosExistentes.map((archivo) => (
+                          <div key={archivo.ArchivoID} className="document-item">
+                            <div className="document-info">
+                              <span className="document-icon">
+                                {archivo.TipoArchivo?.startsWith('image/') ? <MdImage size={20} /> : <FiUpload size={20} />}
+                              </span>
+                              <div className="document-details">
+                                <span className="document-name">{archivo.NombreArchivo}</span>
+                                <span className="document-size doc-guardado">Guardado</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="remove-document"
+                              onClick={() => handleEliminarArchivoExistente(archivo.ArchivoID)}
+                              title="Eliminar documento"
+                            >
+                              <FiX size={18} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {attachments.length > 0 && (
                     <div className="scanned-documents">
-                      <h3 className="section-title">Documentos ({attachments.length})</h3>
+                      <h3 className="section-title">Nuevos documentos ({attachments.length})</h3>
                       <div className="documents-list">
                         {attachments.map((file, index) => (
                           <div key={index} className="document-item">
@@ -1234,9 +1284,6 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn-action btn-cancel" onClick={onClose}>
-              Cancelar
-            </button>
             <button type="button" className="btn-action btn-save" onClick={handleSave}>
               Guardar
             </button>

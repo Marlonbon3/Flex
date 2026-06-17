@@ -244,10 +244,13 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1rem;
-  padding: 0;
-  line-height: 1;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  color: #7b8aa3;
+  transition: color 0.2s ease;
 }
+.admin-toggle-pass:hover { color: #0A46FF; }
 
 /* User items */
 .admin-user-item { align-items: center; }
@@ -299,3 +302,72 @@
   color: #7b8aa3;
 }
 .admin-no-access h3 { color: #0A1B5B; margin-bottom: 8px; }
+
+@media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-section-selector {
+    flex-wrap: wrap;
+  }
+
+  .admin-section-btn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .admin-tabs {
+    gap: 6px;
+  }
+
+  .admin-tab {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .admin-item {
+    padding: 10px 16px;
+  }
+
+  .admin-add-section {
+    padding: 16px;
+  }
+
+  .admin-list-header {
+    padding: 8px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-container {
+    gap: 14px;
+  }
+
+  .admin-header h2 {
+    font-size: 1.2rem;
+  }
+
+  .admin-section-btn {
+    font-size: 0.75rem;
+    padding: 7px 10px;
+  }
+
+  .admin-add-row {
+    flex-direction: column;
+  }
+
+  .admin-field-wrap {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .admin-btn-add {
+    width: 100%;
+    justify-content: center;
+  }
+}

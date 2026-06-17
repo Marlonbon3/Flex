@@ -142,21 +142,35 @@ router.post('/api/inspeccion', async (req, res) => {
       .input('Cond8', sql.Bit, condiciones?.cond8 ? 1 : 0)
       .input('UsuarioInspectorID', sql.Int, usuarioID)
       .query(`
-        INSERT INTO ContenedoresPaso2 (
-          Paso1ID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
-          Sellos, Rampa, HoraRegistro, TotalPallets, LongitudContenedor, Origen,
-          Empresas, ResponsableDescarga, FirmaResponsable,
-          Cond1, Cond2, Cond3, Cond4, Cond5, Cond6, Cond7, Cond8,
-          UsuarioInspectorID
-        )
-        VALUES (
-          @Paso1ID, @CajaTrailer, @Placas, @Estado, @FechaLlegada, @Turno,
-          @Sellos, @Rampa, CAST(@HoraRegistroVal AS TIME), @TotalPallets, @LongitudContenedor, @Origen,
-          @Empresas, @ResponsableDescarga, @FirmaResponsable,
-          @Cond1, @Cond2, @Cond3, @Cond4, @Cond5, @Cond6, @Cond7, @Cond8,
-          @UsuarioInspectorID
-        );
-        SELECT SCOPE_IDENTITY() as Paso2ID;
+        MERGE ContenedoresPaso2 AS target
+        USING (SELECT @Paso1ID AS Paso1ID) AS src ON target.Paso1ID = src.Paso1ID
+        WHEN MATCHED THEN
+          UPDATE SET
+            CajaTrailer = @CajaTrailer, Placas = @Placas, Estado = @Estado,
+            FechaLlegada = @FechaLlegada, Turno = @Turno, Sellos = @Sellos,
+            Rampa = @Rampa, HoraRegistro = CAST(@HoraRegistroVal AS TIME),
+            TotalPallets = @TotalPallets, LongitudContenedor = @LongitudContenedor,
+            Origen = @Origen, Empresas = @Empresas,
+            ResponsableDescarga = @ResponsableDescarga, FirmaResponsable = @FirmaResponsable,
+            Cond1 = @Cond1, Cond2 = @Cond2, Cond3 = @Cond3, Cond4 = @Cond4,
+            Cond5 = @Cond5, Cond6 = @Cond6, Cond7 = @Cond7, Cond8 = @Cond8,
+            UsuarioInspectorID = @UsuarioInspectorID
+        WHEN NOT MATCHED THEN
+          INSERT (
+            Paso1ID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
+            Sellos, Rampa, HoraRegistro, TotalPallets, LongitudContenedor, Origen,
+            Empresas, ResponsableDescarga, FirmaResponsable,
+            Cond1, Cond2, Cond3, Cond4, Cond5, Cond6, Cond7, Cond8,
+            UsuarioInspectorID
+          )
+          VALUES (
+            @Paso1ID, @CajaTrailer, @Placas, @Estado, @FechaLlegada, @Turno,
+            @Sellos, @Rampa, CAST(@HoraRegistroVal AS TIME), @TotalPallets, @LongitudContenedor, @Origen,
+            @Empresas, @ResponsableDescarga, @FirmaResponsable,
+            @Cond1, @Cond2, @Cond3, @Cond4, @Cond5, @Cond6, @Cond7, @Cond8,
+            @UsuarioInspectorID
+          )
+        OUTPUT inserted.Paso2ID AS Paso2ID;
       `);
 
     res.json({
@@ -300,6 +314,58 @@ router.post('/api/documentos', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
+// 3.5 OBTENER CONTENEDORES PARA ENTREGA DE TURNO
+// ────────────────────────────────────────────────────────────────────
+router.get('/api/entrega-turno', async (req, res) => {
+  try {
+    const { fecha, turno } = req.query;
+
+    if (!fecha || !turno) {
+      return res.status(400).json({ success: false, error: 'Parámetros fecha y turno requeridos' });
+    }
+
+    const result = await pool.request()
+      .input('Fecha', sql.Date, fecha)
+      .input('Turno', sql.NVarChar, turno)
+      .query(`
+        SELECT
+          p1.Paso1ID,
+          p1.TrailerNo,
+          p1.SeaContainerType,
+          p1.QtyPallets,
+          p1.Comments,
+          p2.CajaTrailer,
+          p2.Rampa,
+          p2.TotalPallets,
+          p2.Origen,
+          p2.Empresas,
+          p2.Turno,
+          p2.ResponsableDescarga,
+          p1.FechaCompletado
+        FROM ContenedoresPaso1 p1
+        INNER JOIN (
+          SELECT TOP 1 WITH TIES * FROM ContenedoresPaso2
+          WHERE Paso1ID IN (
+            SELECT Paso1ID FROM ContenedoresPaso1
+            WHERE Status = 'Completado' AND Activo = 0
+              AND CAST(FechaCompletado AS DATE) = @Fecha
+          ) AND Turno = @Turno
+          ORDER BY ROW_NUMBER() OVER (PARTITION BY Paso1ID ORDER BY Paso2ID DESC)
+        ) p2 ON p1.Paso1ID = p2.Paso1ID
+        WHERE p1.Status = 'Completado'
+          AND p1.Activo = 0
+          AND CAST(p1.FechaCompletado AS DATE) = @Fecha
+        ORDER BY p2.Rampa, p1.TrailerNo
+      `);
+
+    res.json({ success: true, datos: result.recordset });
+  } catch (error) {
+    console.error('Error entrega-turno:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
 // 4. OBTENER TODOS LOS CONTENEDORES (activos e inactivos)
 // ────────────────────────────────────────────────────────────────────
 router.get('/api/contenedores', async (req, res) => {
@@ -326,13 +392,16 @@ router.get('/api/contenedores', async (req, res) => {
           p1.BookingNo,
           p1.DateExitPort,
           p1.PoNo,
+          p1.LoadType,
           p1.UsuarioCreadorID,
           p1.FechaCreacion,
           p1.FechaCompletado,
           p1.Status,
           p1.Activo,
+          (SELECT TOP 1 ResponsableDescarga FROM ContenedoresPaso2 WHERE Paso1ID = p1.Paso1ID ORDER BY Paso2ID DESC) as ResponsableDescarga,
           (SELECT COUNT(*) FROM ContenedoresPaso2 WHERE Paso1ID = p1.Paso1ID) as Paso2Count,
-          (SELECT COUNT(*) FROM ContenedoresPaso3 WHERE Paso1ID = p1.Paso1ID) as Paso3Count
+          (SELECT COUNT(*) FROM ContenedoresPaso3 WHERE Paso1ID = p1.Paso1ID) as Paso3Count,
+          (SELECT COUNT(*) FROM Archivos WHERE Paso1ID = p1.Paso1ID) as ArchivosCount
         FROM ContenedoresPaso1 p1
         ORDER BY p1.FechaCreacion DESC
       `);
@@ -389,8 +458,8 @@ router.get('/api/contenedores/:id', async (req, res) => {
           p2.Cond8,
           p3.Paso3ID
         FROM ContenedoresPaso1 p1
-        LEFT JOIN ContenedoresPaso2 p2 ON p1.Paso1ID = p2.Paso1ID
-        LEFT JOIN ContenedoresPaso3 p3 ON p1.Paso1ID = p3.Paso1ID
+        LEFT JOIN (SELECT TOP 1 * FROM ContenedoresPaso2 WHERE Paso1ID = @Paso1ID ORDER BY Paso2ID DESC) p2 ON p1.Paso1ID = p2.Paso1ID
+        LEFT JOIN (SELECT TOP 1 * FROM ContenedoresPaso3 WHERE Paso1ID = @Paso1ID ORDER BY Paso3ID DESC) p3 ON p1.Paso1ID = p3.Paso1ID
         WHERE p1.Paso1ID = @Paso1ID
       `);
 
@@ -948,6 +1017,28 @@ router.post('/api/entrega-turno', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
+// 13.1 ELIMINAR ARCHIVO INDIVIDUAL
+// ────────────────────────────────────────────────────────────────────
+router.delete('/api/archivos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.request()
+      .input('ArchivoID', sql.Int, id)
+      .query(`DELETE FROM Archivos WHERE ArchivoID = @ArchivoID`);
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
+    }
+
+    res.json({ success: true, mensaje: 'Archivo eliminado' });
+  } catch (error) {
+    console.error('Error eliminando archivo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
 // 13. OBTENER ARCHIVOS DE UN CONTENEDOR (Para PDF)
 // ────────────────────────────────────────────────────────────────────
 router.get('/api/archivos/:paso1ID', async (req, res) => {
@@ -1041,6 +1132,87 @@ router.patch('/api/usuarios/:id/activo', async (req, res) => {
       .query(`UPDATE Usuarios SET Activo = @Activo WHERE UsuarioID = @UsuarioID`);
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// ENTREGAS GUARDADAS DE TURNO
+// ────────────────────────────────────────────────────────────────────
+
+const INIT_ENTREGAS_TABLE = `
+  IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='EntregasTurnoGuardadas' AND xtype='U')
+  CREATE TABLE EntregasTurnoGuardadas (
+    EntregaGuardadaID INT IDENTITY(1,1) PRIMARY KEY,
+    Fecha DATE NOT NULL,
+    Turno NVARCHAR(50) NOT NULL,
+    TotalTrailas INT NOT NULL DEFAULT 0,
+    DatosJSON NVARCHAR(MAX),
+    FechaGuardado DATETIME DEFAULT GETDATE()
+  )
+`;
+
+router.get('/api/entregas-guardadas', async (req, res) => {
+  try {
+    await pool.request().query(INIT_ENTREGAS_TABLE);
+    const result = await pool.request().query(`
+      SELECT EntregaGuardadaID, Fecha, Turno, TotalTrailas, FechaGuardado
+      FROM EntregasTurnoGuardadas
+      ORDER BY FechaGuardado DESC
+    `);
+    res.json({ success: true, datos: result.recordset });
+  } catch (error) {
+    console.error('Error GET entregas-guardadas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/api/entregas-guardadas', async (req, res) => {
+  try {
+    const { fecha, turno, totalTrailas, datosJSON } = req.body;
+    await pool.request().query(INIT_ENTREGAS_TABLE);
+    const result = await pool.request()
+      .input('Fecha', sql.Date, fecha)
+      .input('Turno', sql.NVarChar, turno)
+      .input('TotalTrailas', sql.Int, totalTrailas || 0)
+      .input('DatosJSON', sql.NVarChar(sql.MAX), JSON.stringify(datosJSON || []))
+      .query(`
+        INSERT INTO EntregasTurnoGuardadas (Fecha, Turno, TotalTrailas, DatosJSON)
+        VALUES (@Fecha, @Turno, @TotalTrailas, @DatosJSON);
+        SELECT SCOPE_IDENTITY() AS EntregaGuardadaID;
+      `);
+    res.json({ success: true, id: result.recordset[0].EntregaGuardadaID });
+  } catch (error) {
+    console.error('Error POST entregas-guardadas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/api/entregas-guardadas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.request()
+      .input('ID', sql.Int, id)
+      .query('DELETE FROM EntregasTurnoGuardadas WHERE EntregaGuardadaID = @ID');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error DELETE entregas-guardadas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/api/entregas-guardadas/:id/datos', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.request()
+      .input('ID', sql.Int, id)
+      .query('SELECT DatosJSON FROM EntregasTurnoGuardadas WHERE EntregaGuardadaID = @ID');
+    if (!result.recordset.length) {
+      return res.status(404).json({ success: false, error: 'No encontrado' });
+    }
+    res.json({ success: true, datos: JSON.parse(result.recordset[0].DatosJSON) });
+  } catch (error) {
+    console.error('Error GET entregas-guardadas datos:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

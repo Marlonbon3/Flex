@@ -1,0 +1,240 @@
+/* ══════════════════════════════════════════════════════
+   DATE PICKER TABLET — desktop nativo, móvil drum roll
+   ══════════════════════════════════════════════════════ */
+
+/* ── Input nativo (desktop) ─────────────────────────── */
+.dpt-native {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dae2ea;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #0A1B5B;
+  background: white;
+  cursor: pointer;
+  min-height: 40px;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+.dpt-native:hover  { border-color: #0A46FF; }
+.dpt-native:focus  {
+  outline: none;
+  border-color: #0A46FF;
+  box-shadow: 0 0 0 3px rgba(10, 70, 255, 0.1);
+}
+
+/* ── Botón disparador (móvil) ───────────────────────── */
+.dpt-trigger {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #dae2ea;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0A1B5B;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 500;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, background 0.15s;
+}
+.dpt-trigger:active    { background: #f5f7fa; }
+.dpt-trigger-icon      { flex-shrink: 0; color: #7b8aa3; }
+.dpt-placeholder span  { color: #b1bcc7; }
+.dpt-placeholder       { color: #b1bcc7; }
+
+/* ── Backdrop ───────────────────────────────────────── */
+.dpt-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 40, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  animation: dpt-fade 0.2s ease;
+}
+@keyframes dpt-fade {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+/* ── Bottom sheet ───────────────────────────────────── */
+.dpt-sheet {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  animation: dpt-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+@keyframes dpt-slide-up {
+  from { transform: translateY(100%) }
+  to   { transform: translateY(0) }
+}
+
+/* Handle bar */
+.dpt-handle-bar {
+  width: 44px;
+  height: 5px;
+  background: #dae2ea;
+  border-radius: 3px;
+  margin: 12px auto 0;
+}
+
+/* Título */
+.dpt-sheet-header {
+  padding: 14px 24px 4px;
+  text-align: center;
+}
+.dpt-sheet-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0A1B5B;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Labels de columna */
+.dpt-col-labels {
+  display: flex;
+  padding: 8px 16px 0;
+}
+.dpt-col-labels span {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7b8aa3;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* ── Contenedor de ruedas ───────────────────────────── */
+.dpt-drums {
+  display: flex;
+  padding: 0 16px;
+  position: relative;
+}
+
+/* ── Rueda individual ───────────────────────────────── */
+.drum-col {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  height: calc(5 * 52px); /* VISIBLE * ITEM_H */
+}
+
+.drum-scroll {
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.drum-scroll::-webkit-scrollbar { display: none; }
+
+.drum-item {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  scroll-snap-align: center;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  user-select: none;
+  transition: color 0.15s, font-size 0.15s, font-weight 0.15s;
+}
+.drum-item.drum-active {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0A1B5B;
+}
+.drum-item.drum-pad {
+  scroll-snap-align: none;
+  pointer-events: none;
+}
+
+/* Degradados superior/inferior */
+.drum-fade-top,
+.drum-fade-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(2 * 52px);
+  pointer-events: none;
+  z-index: 2;
+}
+.drum-fade-top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.97) 0%,
+    rgba(255, 255, 255, 0.6)  50%,
+    rgba(255, 255, 255, 0)   100%
+  );
+}
+.drum-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.97) 0%,
+    rgba(255, 255, 255, 0.6)  50%,
+    rgba(255, 255, 255, 0)   100%
+  );
+}
+
+/* Banda de selección central */
+.drum-selector {
+  position: absolute;
+  top: calc(2 * 52px);
+  left: 8px;
+  right: 8px;
+  height: 52px;
+  border-top: 1.5px solid rgba(10, 70, 255, 0.2);
+  border-bottom: 1.5px solid rgba(10, 70, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(10, 70, 255, 0.05);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Botones del footer ─────────────────────────────── */
+.dpt-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px 20px;
+}
+.dpt-btn {
+  flex: 1;
+  padding: 15px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+  transition: all 0.15s ease;
+  letter-spacing: 0.1px;
+}
+.dpt-btn-cancel {
+  background: #f0f3f7;
+  color: #546c7f;
+}
+.dpt-btn-cancel:active { background: #e3eaf3; transform: scale(0.98); }
+.dpt-btn-confirm {
+  background: #0A46FF;
+  color: white;
+  box-shadow: 0 4px 14px rgba(10, 70, 255, 0.35);
+}
+.dpt-btn-confirm:active { background: #0533CC; transform: scale(0.98); }

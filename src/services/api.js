@@ -489,6 +489,35 @@ export const toggleActivoUsuario = async (id, activo) => {
 };
 
 // ────────────────────────────────────────────────────────────────────
+// 16. ARCHIVOS - Obtener y eliminar documentos de un contenedor
+// ────────────────────────────────────────────────────────────────────
+export const obtenerArchivos = async (paso1ID) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/archivos/${paso1ID}`);
+    const data = await response.json();
+    return data.archivos || [];
+  } catch (error) {
+    console.error('Error GET archivos:', error);
+    return [];
+  }
+};
+
+export const eliminarArchivo = async (archivoID) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/archivos/${archivoID}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      return { success: false, error: `Error ${response.status}: ${response.statusText}` };
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error DELETE archivo:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ────────────────────────────────────────────────────────────────────
 // 15. REPORTES - Datos agregados
 // ────────────────────────────────────────────────────────────────────
 export const obtenerReportes = async () => {

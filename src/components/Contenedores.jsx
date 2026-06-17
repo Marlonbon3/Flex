@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { MdAdd, MdDownload, MdArchive, MdDelete } from 'react-icons/md'
+import React, { useState, useEffect, useRef } from 'react'
+import { MdAdd, MdArchive, MdDelete } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
 import AgregarContenedor from './AgregarContenedor'
@@ -13,10 +13,28 @@ export default function Contenedores() {
   const [loading, setLoading] = useState(true)
   const [contenedorSeleccionado, setContenedorSeleccionado] = useState(null)
   const [menuAbierto, setMenuAbierto] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
+  const dropdownRef = useRef(null)
 
   useEffect(() => {
     cargarContenedores()
   }, [])
+
+  useEffect(() => {
+    if (!menuAbierto) return
+    const cerrarClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setMenuAbierto(null)
+      }
+    }
+    const cerrarScroll = () => setMenuAbierto(null)
+    document.addEventListener('mousedown', cerrarClick)
+    window.addEventListener('scroll', cerrarScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', cerrarClick)
+      window.removeEventListener('scroll', cerrarScroll, true)
+    }
+  }, [menuAbierto])
 
   const cargarContenedores = async () => {
     try {
@@ -70,8 +88,23 @@ export default function Contenedores() {
     setMenuAbierto(null)
   }
 
+  const handleMenuToggle = (e, paso1ID) => {
+    e.stopPropagation()
+    if (menuAbierto === paso1ID) {
+      setMenuAbierto(null)
+      return
+    }
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMenuPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right
+    })
+    setMenuAbierto(paso1ID)
+  }
+
   const handleArchivar = async (id, e) => {
     e.stopPropagation()
+    setMenuAbierto(null)
     const ok = await confirm('¿Estás seguro de que deseas archivar este contenedor?')
     if (!ok) return
     try {
@@ -79,7 +112,6 @@ export default function Contenedores() {
       if (resultado.success) {
         toast('Contenedor archivado exitosamente', 'success')
         cargarContenedores()
-        setMenuAbierto(null)
       } else {
         toast('Error: ' + resultado.error, 'error')
       }
@@ -90,6 +122,7 @@ export default function Contenedores() {
 
   const handleEliminar = async (id, e) => {
     e.stopPropagation()
+    setMenuAbierto(null)
     const ok = await confirm('¿Estás seguro? Esto eliminará el contenedor de forma permanente')
     if (!ok) return
     try {
@@ -97,17 +130,12 @@ export default function Contenedores() {
       if (resultado.success) {
         toast('Contenedor eliminado exitosamente', 'success')
         cargarContenedores()
-        setMenuAbierto(null)
       } else {
         toast('Error: ' + resultado.error, 'error')
       }
     } catch (error) {
       toast('Error eliminando: ' + error.message, 'error')
     }
-  }
-
-  const handleExportar = () => {
-    console.log('Exportar a Excel')
   }
 
   const getStatusClass = (status) => {
@@ -120,10 +148,6 @@ export default function Contenedores() {
         <button className="btn-primary" onClick={handleAgregar}>
           <MdAdd className="btn-icon" />
           Agregar nuevo contenedor
-        </button>
-        <button className="btn-secondary" onClick={handleExportar}>
-          <MdDownload className="btn-icon" />
-          Exportar a Excel
         </button>
       </div>
 
@@ -170,30 +194,11 @@ export default function Contenedores() {
                     <div className="menu-container">
                       <button
                         className="action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setMenuAbierto(menuAbierto === trailer.paso1ID ? null : trailer.paso1ID)
-                        }}
+                        onClick={(e) => handleMenuToggle(e, trailer.paso1ID)}
                         title="Opciones"
                       >
                         <HiEllipsisVertical />
                       </button>
-                      {menuAbierto === trailer.paso1ID && (
-                        <div className="dropdown-menu">
-                          <button
-                            className="menu-option archivar"
-                            onClick={(e) => handleArchivar(trailer.paso1ID, e)}
-                          >
-                            <MdArchive size={15} /> Archivar
-                          </button>
-                          <button
-                            className="menu-option eliminar"
-                            onClick={(e) => handleEliminar(trailer.paso1ID, e)}
-                          >
-                            <MdDelete size={15} /> Eliminar
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -202,6 +207,27 @@ export default function Contenedores() {
           </tbody>
         </table>
       </div>
+
+      {menuAbierto && (
+        <div
+          ref={dropdownRef}
+          className="dropdown-menu"
+          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+        >
+          <button
+            className="menu-option archivar"
+            onClick={(e) => handleArchivar(menuAbierto, e)}
+          >
+            <MdArchive size={15} /> Archivar
+          </button>
+          <button
+            className="menu-option eliminar"
+            onClick={(e) => handleEliminar(menuAbierto, e)}
+          >
+            <MdDelete size={15} /> Eliminar
+          </button>
+        </div>
+      )}
 
       <div className="table-footer">
         <p>Mostrando {trailers.length} trailers activos en el flujo operativo.</p>

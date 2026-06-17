@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as api from '../services/api'
 
@@ -9,6 +9,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (localStorage.getItem('usuario')) {
+      navigate('/inicio', { replace: true })
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -3,6 +3,7 @@ import { MdDownload, MdDelete, MdFilePresent, MdEdit } from 'react-icons/md'
 import { BsFilePdf, BsSearch } from 'react-icons/bs'
 import { FiRefreshCw } from 'react-icons/fi'
 import '../styles/archivo.css'
+import DatePickerTablet from './DatePickerTablet'
 import * as api from '../services/api'
 import { generarPDFContenedor } from '../utils/pdfGenerator'
 import { exportarExcel } from '../utils/excelExporter'
@@ -14,9 +15,15 @@ export default function Archivo() {
   const [contenedores, setContenedores] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const hoyLocal = (() => {
+    const n = new Date()
+    const pad = (x) => String(x).padStart(2, '0')
+    return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`
+  })()
+  const [startDate, setStartDate] = useState(hoyLocal)
+  const [endDate, setEndDate] = useState(hoyLocal)
   const [tipoFiltro, setTipoFiltro] = useState('Todos los tipos')
+  const [estadoFiltro, setEstadoFiltro] = useState('Todos')
   const [contenedorEditar, setContenedorEditar] = useState(null)
 
   useEffect(() => {
@@ -151,6 +158,13 @@ export default function Archivo() {
     return grupos
   }
 
+  const fechaLocalStr = (ts) => {
+    if (!ts) return null
+    const d = new Date(ts)
+    const pad = (x) => String(x).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  }
+
   const filtrar = (lista) => {
     return lista.filter(c => {
       if (searchTerm) {
@@ -161,16 +175,15 @@ export default function Archivo() {
           c.PortOfEntry?.toLowerCase().includes(term)
         if (!match) return false
       }
-      if (startDate && new Date(c.FechaCreacion) < new Date(startDate)) return false
-      if (endDate) {
-        const fin = new Date(endDate)
-        fin.setHours(23, 59, 59, 999)
-        if (new Date(c.FechaCreacion) > fin) return false
-      }
+      const fechaC = fechaLocalStr(c.FechaCreacion)
+      if (startDate && fechaC && fechaC < startDate) return false
+      if (endDate && fechaC && fechaC > endDate) return false
       if (tipoFiltro !== 'Todos los tipos') {
         if (tipoFiltro === 'Llegada' && !c.UsoEmbarques?.toLowerCase().includes('llegada')) return false
         if (tipoFiltro === 'Inspección' && !c.UsoEmbarques?.toLowerCase().includes('inspecci')) return false
       }
+      if (estadoFiltro === 'Completo' && !(c.ArchivosCount > 0)) return false
+      if (estadoFiltro === 'Incompleto' && c.ArchivosCount > 0) return false
       return true
     })
   }
@@ -187,21 +200,22 @@ export default function Archivo() {
         </div>
 
         <div className="archivo-filters">
-          <div className="filter-group">
-            <input
-              type="date"
-              className="date-input"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-            <span>-</span>
-            <input
-              type="date"
-              className="date-input"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-            <button className="filter-btn" onClick={() => { setStartDate(''); setEndDate('') }} title="Limpiar fechas">
+          <div className="filter-group filter-group-fechas">
+            <div className="fecha-rango-item">
+              <span className="fecha-rango-label">Desde</span>
+              <DatePickerTablet
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="fecha-rango-item">
+              <span className="fecha-rango-label">Hasta</span>
+              <DatePickerTablet
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <button className="filter-btn" onClick={() => { setStartDate(hoyLocal); setEndDate(hoyLocal) }} title="Restablecer a hoy">
               <FiRefreshCw size={16} />
             </button>
           </div>
@@ -214,6 +228,15 @@ export default function Archivo() {
             <option>Inspección</option>
             <option>Llegada</option>
             <option>Otros</option>
+          </select>
+          <select
+            className="filter-select"
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value)}
+          >
+            <option value="Todos">Todos los estados</option>
+            <option value="Completo">Completo</option>
+            <option value="Incompleto">Incompleto</option>
           </select>
           <div className="search-box">
             <input
@@ -237,24 +260,25 @@ export default function Archivo() {
             <thead>
               <tr>
                 <th>FECHA</th>
-                <th>TIPO DE DOCUMENTO</th>
                 <th>TRAILER NO.</th>
                 <th>CONTENEDOR</th>
                 <th>PUERTO DE ENTRADA</th>
-                <th>GENERADO POR</th>
+                <th>LOAD TYPE</th>
+                <th>RESPONSABLE</th>
+                <th>ESTADO</th>
                 <th>ACCIONES</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
                     Cargando contenedores...
                   </td>
                 </tr>
               ) : todosLosContenedores.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
                     No hay contenedores registrados
                   </td>
                 </tr>
@@ -262,7 +286,7 @@ export default function Archivo() {
                 Object.entries(gruposContenedores).map(([fecha, items]) => (
                   <React.Fragment key={fecha}>
                     <tr>
-                      <td colSpan="7" className="date-group">
+                      <td colSpan="8" className="date-group">
                         {fecha} ({items.length})
                       </td>
                     </tr>
@@ -274,11 +298,17 @@ export default function Archivo() {
                             minute: '2-digit'
                           })}
                         </td>
-                        <td>Nueva llegada de contenedor</td>
                         <td>{c.TrailerNo || 'N/A'}</td>
                         <td>{c.SeaContainerType || 'N/A'}</td>
                         <td>{c.PortOfEntry || 'N/A'}</td>
-                        <td>Usuario #{c.UsuarioCreadorID || 'N/A'}</td>
+                        <td>{c.LoadType || 'N/A'}</td>
+                        <td>{c.ResponsableDescarga || 'N/A'}</td>
+                        <td>
+                          {c.ArchivosCount > 0
+                            ? <span className="estado-badge completo">Completo</span>
+                            : <span className="estado-badge incompleto">Sin documentos</span>
+                          }
+                        </td>
                         <td className="actions">
                           <button
                             className="action-btn pdf-btn"

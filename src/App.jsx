@@ -19,6 +19,7 @@ export default function App() {
         <Route path="/reportes"     element={<ProtectedRoute><Home tab="reportes" /></ProtectedRoute>} />
         <Route path="/turno"        element={<ProtectedRoute><Home tab="turno" /></ProtectedRoute>} />
         <Route path="/admin"        element={<ProtectedRoute><Home tab="admin" /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

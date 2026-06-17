@@ -122,6 +122,93 @@ export const exportarExcel = async (contenedores, fileName = 'Archivo.xlsx') => 
   await descargar(wb, fileName);
 };
 
+export const exportarEntregaTurno = async (contenedores, entregaMeta, fileName = 'EntregaTurno.xlsx') => {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Flex-WebApp';
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet('Entrega de Turno', {
+    views: [{ state: 'frozen', ySplit: 3 }],
+  });
+
+  ws.columns = [
+    { key: 'rampa',      width: 10 },
+    { key: 'trailer',    width: 14 },
+    { key: 'caja',       width: 14 },
+    { key: 'contenedor', width: 18 },
+    { key: 'pallets',    width: 16 },
+    { key: 'capacidad',  width: 18 },
+    { key: 'porcentaje', width: 12 },
+    { key: 'cliente',    width: 24 },
+    { key: 'comentario', width: 28 },
+  ];
+
+  ws.mergeCells('A1:I1');
+  const titleCell = ws.getCell('A1');
+  const fechaTurno = entregaMeta.Fecha ? String(entregaMeta.Fecha).split('T')[0] : '';
+  titleCell.value = `ENTREGA DE TURNO — ${(entregaMeta.Turno || '').toUpperCase()} — ${fechaTurno}`;
+  titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: BLANCO } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_OSCURO } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(1).height = 32;
+
+  ws.mergeCells('A2:I2');
+  const subCell = ws.getCell('A2');
+  subCell.value = `Generado: ${formatDate(new Date())}  |  Total tráilas: ${contenedores.length}`;
+  subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANCO } };
+  subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL } };
+  subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(2).height = 20;
+
+  const headers = ['Rampa', 'Tráiler No.', 'Caja Tráiler', 'Contenedor', 'Pallets recibidos', 'Capacidad (Pallets)', '% Uso', 'Cliente / Empresa', 'Comentario'];
+  const headerRow = ws.addRow(headers);
+  headerRow.height = 22;
+  headerRow.eachCell((cell) => {
+    cell.font = { ...fontBase, bold: true, color: { argb: BLANCO } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = borderThin;
+  });
+
+  const calcPct = (total, cap) => {
+    const p = parseFloat(total);
+    const c = parseFloat(cap);
+    if (!p || !c || c === 0) return 'N/A';
+    return ((p / c) * 100).toFixed(1) + '%';
+  };
+  const parseEmpresas = (raw) => {
+    if (!raw) return 'N/A';
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.join(', ') : raw;
+    } catch { return raw; }
+  };
+
+  contenedores.forEach((c, i) => {
+    const row = ws.addRow([
+      c.Rampa || '—',
+      c.TrailerNo || '—',
+      c.CajaTrailer || '—',
+      c.SeaContainerType || '—',
+      c.TotalPallets ?? '—',
+      c.QtyPallets ?? '—',
+      calcPct(c.TotalPallets, c.QtyPallets),
+      parseEmpresas(c.Empresas),
+      c.Comments || '—',
+    ]);
+    row.height = 18;
+    const bgColor = i % 2 === 0 ? BLANCO : GRIS_CLARO;
+    row.eachCell((cell) => {
+      cell.font = { ...fontBase, color: { argb: AZUL_OSCURO } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = borderThin;
+    });
+  });
+
+  await descargar(wb, fileName);
+};
+
 export const exportarPaso1Excel = async (paso1Data, fileName = 'Paso1.xlsx') => {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Detalle Contenedor');

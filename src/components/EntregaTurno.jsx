@@ -1,50 +1,144 @@
-import React, { useState } from 'react'
-import { MdSave, MdDeleteOutline } from 'react-icons/md'
+import React, { useState, useEffect } from 'react'
+import { MdSave, MdDelete, MdFileDownload } from 'react-icons/md'
+import { FiRefreshCw } from 'react-icons/fi'
 import '../styles/entregaTurno.css'
 import { useAlert } from './AlertProvider'
+import { exportarEntregaTurno } from '../utils/excelExporter'
+import DatePickerTablet from './DatePickerTablet'
+
+const API_BASE = 'http://localhost:5000/api'
+
+function detectarTurno() {
+  const hora = new Date().getHours()
+  return hora < 12 ? '1er turno' : '2do turno'
+}
+
+function hoyISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
+function parsearEmpresas(raw) {
+  if (!raw) return '—'
+  try {
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.join(', ') : raw
+  } catch {
+    return raw
+  }
+}
+
+function calcularPorcentaje(totalPallets, qtyPallets) {
+  const p = parseFloat(totalPallets)
+  const c = parseFloat(qtyPallets)
+  if (!p || !c || c === 0) return '—'
+  return ((p / c) * 100).toFixed(1) + '%'
+}
 
 export default function EntregaTurno() {
-  const { toast } = useAlert()
-  const [fecha, setFecha] = useState('2026-05-07')
-  const [turno, setTurno] = useState('1er turno (08:00 AM - 12:00 PM)')
-  const [responsable, setResponsable] = useState('Juan Pérez')
+  const { toast, confirm } = useAlert()
+  const [fecha, setFecha] = useState(hoyISO())
+  const [turno, setTurno] = useState(detectarTurno())
+  const [contenedores, setContenedores] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [entregasGuardadas, setEntregasGuardadas] = useState([])
+  const [loadingEntregas, setLoadingEntregas] = useState(false)
 
-  const [filas, setFilas] = useState([
-    { id: 1,  rampa: 'DR-01', numTrailer: 1,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 2,  rampa: 'DR-02', numTrailer: 2,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 3,  rampa: 'DR-03', numTrailer: 3,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 4,  rampa: 'DR-04', numTrailer: 4,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 5,  rampa: 'DR-05', numTrailer: 5,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 6,  rampa: 'DR-06', numTrailer: 6,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 7,  rampa: 'DR-07', numTrailer: 7,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 8,  rampa: 'DR-08', numTrailer: 8,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 9,  rampa: 'DR-09', numTrailer: 9,  trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' },
-    { id: 10, rampa: 'DR-10', numTrailer: 10, trailes: '', contenido: '', pallets: '', cliente: '', origenTB: '', capacidad: '', estibas: '', comentario: '' }
-  ])
-
-  const actualizarCampo = (id, campo, valor) => {
-    setFilas(filas.map(fila => fila.id === id ? { ...fila, [campo]: valor } : fila))
+  const cargarDatos = async () => {
+    if (!fecha) return
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/entrega-turno?fecha=${fecha}&turno=${encodeURIComponent(turno)}`)
+      const data = await res.json()
+      if (data.success) {
+        setContenedores(data.datos)
+      } else {
+        toast('Error cargando datos: ' + data.error, 'error')
+        setContenedores([])
+      }
+    } catch {
+      toast('Error conectando al servidor', 'error')
+      setContenedores([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const calcularPorcentajeUso = (pallets, capacidad) => {
-    if (!pallets || !capacidad || capacidad === 0) return '—'
-    return ((parseFloat(pallets) / parseFloat(capacidad)) * 100).toFixed(2) + '%'
+  const cargarEntregasGuardadas = async () => {
+    setLoadingEntregas(true)
+    try {
+      const res = await fetch(`${API_BASE}/entregas-guardadas`)
+      const data = await res.json()
+      if (data.success) setEntregasGuardadas(data.datos)
+    } catch {}
+    finally { setLoadingEntregas(false) }
   }
 
-  const calcularTotal = () => filas.filter(f => f.trailes && f.trailes !== '').length
+  useEffect(() => {
+    cargarDatos()
+  }, [fecha, turno])
 
-  const limpiarFormulario = () => {
-    setFilas(filas.map(fila => ({
-      ...fila,
-      trailes: '', contenido: '', pallets: '', cliente: '',
-      origenTB: '', capacidad: '', estibas: '', comentario: ''
-    })))
+  useEffect(() => {
+    cargarEntregasGuardadas()
+  }, [])
+
+  const guardarEntrega = async () => {
+    if (contenedores.length === 0) {
+      toast('No hay contenedores para guardar en este turno', 'warning')
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/entregas-guardadas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha,
+          turno,
+          totalTrailas: contenedores.length,
+          datosJSON: contenedores
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast(`Entrega guardada. Total tráilas: ${contenedores.length}`, 'success')
+        cargarEntregasGuardadas()
+      } else {
+        toast('Error guardando: ' + data.error, 'error')
+      }
+    } catch {
+      toast('Error conectando al servidor', 'error')
+    }
   }
 
-  const guardarEntrega = () => {
-    const total = calcularTotal()
-    console.log('Entrega guardada:', { fecha, turno, responsable, filas, totalTrailes: total })
-    toast(`Entrega de turno guardada. Total de tráilas: ${total}`, 'success')
+  const handleEliminarEntrega = async (id) => {
+    const ok = await confirm('¿Eliminar esta entrega guardada?')
+    if (!ok) return
+    try {
+      const res = await fetch(`${API_BASE}/entregas-guardadas/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast('Entrega eliminada', 'success')
+        cargarEntregasGuardadas()
+      } else {
+        toast('Error eliminando: ' + data.error, 'error')
+      }
+    } catch {
+      toast('Error conectando al servidor', 'error')
+    }
+  }
+
+  const handleExportarEntrega = async (entrega) => {
+    try {
+      const res = await fetch(`${API_BASE}/entregas-guardadas/${entrega.EntregaGuardadaID}/datos`)
+      const data = await res.json()
+      if (data.success) {
+        const fechaStr = String(entrega.Fecha).split('T')[0]
+        await exportarEntregaTurno(data.datos, entrega, `EntregaTurno_${fechaStr}_${entrega.Turno}.xlsx`)
+      } else {
+        toast('Error exportando: ' + data.error, 'error')
+      }
+    } catch {
+      toast('Error exportando', 'error')
+    }
   }
 
   return (
@@ -52,17 +146,16 @@ export default function EntregaTurno() {
       <div className="section-header">
         <div className="header-info">
           <h2>Entrega de turno</h2>
-          <p>Registra las tráilas descargadas por turno.</p>
+          <p>Contenedores completados y archivados para el turno seleccionado.</p>
         </div>
-
         <div className="header-actions">
           <button className="btn-primary" onClick={guardarEntrega}>
             <MdSave size={18} />
             Guardar entrega
           </button>
-          <button className="btn-secondary" onClick={limpiarFormulario}>
-            <MdDeleteOutline size={18} />
-            Limpiar
+          <button className="btn-secondary" onClick={cargarDatos}>
+            <FiRefreshCw size={16} />
+            Actualizar
           </button>
         </div>
       </div>
@@ -70,15 +163,11 @@ export default function EntregaTurno() {
       <div className="filtros-section">
         <div className="filtro-grupo">
           <label htmlFor="fecha">Fecha</label>
-          <div className="input-con-icono">
-            <input
-              id="fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="input-fecha"
-            />
-          </div>
+          <DatePickerTablet
+            id="fecha"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+          />
         </div>
 
         <div className="filtro-grupo">
@@ -89,24 +178,16 @@ export default function EntregaTurno() {
             onChange={(e) => setTurno(e.target.value)}
             className="select-filtro"
           >
-            <option>1er turno (08:00 AM - 12:00 PM)</option>
-            <option>2do turno (12:00 PM - 04:00 PM)</option>
+            <option value="1er turno">1er turno (08:00 AM – 12:00 PM)</option>
+            <option value="2do turno">2do turno (12:00 PM – 04:00 PM)</option>
           </select>
         </div>
 
         <div className="filtro-grupo">
-          <label htmlFor="responsable">Responsable</label>
-          <select
-            id="responsable"
-            value={responsable}
-            onChange={(e) => setResponsable(e.target.value)}
-            className="select-filtro"
-          >
-            <option>Juan Pérez</option>
-            <option>María García</option>
-            <option>Carlos López</option>
-            <option>Ana Martínez</option>
-          </select>
+          <label>Total contenedores</label>
+          <span className="badge-total" style={{ alignSelf: 'center', padding: '6px 16px', fontSize: '1rem' }}>
+            {contenedores.length}
+          </span>
         </div>
       </div>
 
@@ -116,70 +197,132 @@ export default function EntregaTurno() {
             <thead>
               <tr className="encabezado-tabla">
                 <th colSpan="2" className="col-group-rampas">RAMPAS</th>
-                <th colSpan="7" className="col-group-trailes">TRÁILAS DESCARGADAS</th>
-                <th className="col-group-estibas">ESTIBAS</th>
+                <th colSpan="6" className="col-group-trailes">TRÁILAS DESCARGADAS</th>
                 <th className="col-group-comentario">COMENTARIO</th>
               </tr>
               <tr className="subencabezado-tabla">
-                <th className="col-rampas">Rampas</th>
-                <th className="col-trailer"># de tráiler</th>
-                <th className="col-trailes">Tráilas</th>
-                <th className="col-contenido">Contenido</th>
-                <th className="col-pallets">Pallets</th>
-                <th className="col-cliente">Cliente</th>
-                <th className="col-origen">Origen del TB</th>
+                <th className="col-rampas">Rampa</th>
+                <th className="col-trailer">Tráiler No.</th>
+                <th className="col-trailes">Caja Tráiler</th>
+                <th className="col-contenido">Contenedor</th>
+                <th className="col-pallets">Pallets recibidos</th>
                 <th className="col-capacidad">Capacidad (Pallets)</th>
-                <th className="col-porcentaje">% Uso (Pallets Recibidos/Capacidad)</th>
-                <th className="col-estibas">Estibas</th>
+                <th className="col-porcentaje">% Uso</th>
+                <th className="col-cliente">Cliente / Empresa</th>
                 <th className="col-comentario">Comentario</th>
               </tr>
             </thead>
             <tbody>
-              {filas.map((fila) => (
-                <tr key={fila.id} className="fila-datos">
-                  <td className="col-rampas celda-rampa">{fila.rampa}</td>
-                  <td className="col-trailer celda-input">
-                    <input type="number" value={fila.numTrailer} readOnly className="input-celda" />
-                  </td>
-                  <td className="col-trailes celda-input">
-                    <input type="text" value={fila.trailes} onChange={(e) => actualizarCampo(fila.id, 'trailes', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-contenido celda-input">
-                    <input type="text" value={fila.contenido} onChange={(e) => actualizarCampo(fila.id, 'contenido', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-pallets celda-input">
-                    <input type="number" value={fila.pallets} onChange={(e) => actualizarCampo(fila.id, 'pallets', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-cliente celda-input">
-                    <input type="text" value={fila.cliente} onChange={(e) => actualizarCampo(fila.id, 'cliente', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-origen celda-input">
-                    <input type="text" value={fila.origenTB} onChange={(e) => actualizarCampo(fila.id, 'origenTB', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-capacidad celda-input">
-                    <input type="number" value={fila.capacidad} onChange={(e) => actualizarCampo(fila.id, 'capacidad', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-porcentaje celda-solo-lectura">
-                    {calcularPorcentajeUso(fila.pallets, fila.capacidad)}
-                  </td>
-                  <td className="col-estibas celda-input">
-                    <input type="text" value={fila.estibas} onChange={(e) => actualizarCampo(fila.id, 'estibas', e.target.value)} placeholder="—" className="input-celda" />
-                  </td>
-                  <td className="col-comentario celda-input">
-                    <input type="text" value={fila.comentario} onChange={(e) => actualizarCampo(fila.id, 'comentario', e.target.value)} placeholder="—" className="input-celda" />
+              {loading ? (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '24px' }}>
+                    Cargando datos del turno...
                   </td>
                 </tr>
-              ))}
+              ) : contenedores.length === 0 ? (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '24px', color: '#7b8aa3' }}>
+                    No hay contenedores completados para {turno} del {fecha}
+                  </td>
+                </tr>
+              ) : (
+                contenedores.map((c) => (
+                  <tr key={c.Paso1ID} className="fila-datos">
+                    <td className="col-rampas celda-rampa">{c.Rampa || '—'}</td>
+                    <td className="col-trailer celda-solo-lectura">{c.TrailerNo || '—'}</td>
+                    <td className="col-trailes celda-solo-lectura">{c.CajaTrailer || '—'}</td>
+                    <td className="col-contenido celda-solo-lectura">{c.SeaContainerType || '—'}</td>
+                    <td className="col-pallets celda-solo-lectura">{c.TotalPallets ?? '—'}</td>
+                    <td className="col-capacidad celda-solo-lectura">{c.QtyPallets ?? '—'}</td>
+                    <td className="col-porcentaje celda-solo-lectura">
+                      {calcularPorcentaje(c.TotalPallets, c.QtyPallets)}
+                    </td>
+                    <td className="col-cliente celda-solo-lectura">{parsearEmpresas(c.Empresas)}</td>
+                    <td className="col-comentario celda-solo-lectura">{c.Comments || '—'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
             <tfoot>
               <tr className="fila-total">
-                <td colSpan="2" className="total-label">Total de tráilas descargadas</td>
-                <td colSpan="9" className="total-valor">
-                  <span className="badge-total">{calcularTotal()}</span>
+                <td colSpan="2" className="total-label">Total tráilas descargadas</td>
+                <td colSpan="7" className="total-valor">
+                  <span className="badge-total">{contenedores.length}</span>
                 </td>
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+
+      <div className="entregas-guardadas-section">
+        <div className="entregas-guardadas-header">
+          <h3>Entregas de turno guardadas</h3>
+          <button className="btn-secondary entregas-refresh-btn" onClick={cargarEntregasGuardadas} title="Actualizar">
+            <FiRefreshCw size={14} />
+          </button>
+        </div>
+        <div className="tabla-contenedor">
+          <div className="tabla-wrapper">
+            <table className="tabla-principal">
+              <thead>
+                <tr className="subencabezado-tabla">
+                  <th>Fecha guardado</th>
+                  <th>Fecha turno</th>
+                  <th>Turno</th>
+                  <th>Total tráilas</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingEntregas ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '16px' }}>Cargando...</td>
+                  </tr>
+                ) : entregasGuardadas.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '16px', color: '#7b8aa3' }}>
+                      No hay entregas guardadas
+                    </td>
+                  </tr>
+                ) : (
+                  entregasGuardadas.map((e) => (
+                    <tr key={e.EntregaGuardadaID} className="fila-datos">
+                      <td className="celda-solo-lectura">
+                        {new Date(e.FechaGuardado).toLocaleString('es-ES')}
+                      </td>
+                      <td className="celda-solo-lectura">{String(e.Fecha).split('T')[0]}</td>
+                      <td className="celda-solo-lectura">{e.Turno}</td>
+                      <td className="celda-solo-lectura">
+                        <span className="badge-total" style={{ padding: '3px 10px', fontSize: '13px' }}>
+                          {e.TotalTrailas}
+                        </span>
+                      </td>
+                      <td className="celda-solo-lectura">
+                        <div className="entrega-acciones">
+                          <button
+                            className="btn-accion-entrega btn-exportar"
+                            title="Exportar a Excel"
+                            onClick={() => handleExportarEntrega(e)}
+                          >
+                            <MdFileDownload size={16} />
+                            <span>Exportar a Excel</span>
+                          </button>
+                          <button
+                            className="btn-accion-entrega btn-eliminar"
+                            title="Eliminar"
+                            onClick={() => handleEliminarEntrega(e.EntregaGuardadaID)}
+                          >
+                            <MdDelete size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

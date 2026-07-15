@@ -14,7 +14,8 @@ const pool = require('../config/database.js');
 router.post('/api/contenedores', async (req, res) => {
   try {
     const {
-      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType, comments,
+      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType,
+      statusContenedor, yardDestination, comments,
       qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA,
       actualDate, itemType, aging, bookingNo, dateExitPort, poNo, usuarioID
     } = req.body;
@@ -29,6 +30,8 @@ router.post('/api/contenedores', async (req, res) => {
       .input('UsoEmbarques', sql.NVarChar, usoEmbarques)
       .input('PortOfEntry', sql.NVarChar, portOfEntry)
       .input('LoadType', sql.NVarChar, loadType || null)
+      .input('StatusContenedor', sql.NVarChar, statusContenedor || null)
+      .input('YardDestination', sql.NVarChar, yardDestination || null)
       .input('Comments', sql.NVarChar(sql.MAX), comments)
       .input('QtyPallets', sql.Int, qtyPallets || null)
       .input('EmptyDate', sql.Date, emptyDate || null)
@@ -45,12 +48,14 @@ router.post('/api/contenedores', async (req, res) => {
       .input('UsuarioCreadorID', sql.Int, usuarioID)
       .query(`
         INSERT INTO ContenedoresPaso1 (
-          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry, LoadType, Comments,
+          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry, LoadType,
+          StatusContenedor, YardDestination, Comments,
           QtyPallets, EmptyDate, SealSanLuis, DepartureDate, SealYuma, AgingA,
           ActualDate, ItemType, Aging, BookingNo, DateExitPort, PoNo, UsuarioCreadorID, Activo
         )
         VALUES (
-          @TrailerNo, @TrailerType, @SeaContainerType, @UsoEmbarques, @PortOfEntry, @LoadType, @Comments,
+          @TrailerNo, @TrailerType, @SeaContainerType, @UsoEmbarques, @PortOfEntry, @LoadType,
+          @StatusContenedor, @YardDestination, @Comments,
           @QtyPallets, @EmptyDate, @SealSanLuis, @DepartureDate, @SealYuma, @AgingA,
           @ActualDate, @ItemType, @Aging, @BookingNo, @DateExitPort, @PoNo, @UsuarioCreadorID, 1
         );
@@ -271,8 +276,8 @@ router.post('/api/documentos', async (req, res) => {
       throw paso3Error;
     }
 
-    // 3. AUTOMÁTICAMENTE cambiar Status a Completado y archivar el contenedor
-    console.log('[INFO] Cambiando Status a Completado e Activo=0...');
+    // 3. Cambiar Status a Completado (sin archivar automáticamente)
+    console.log('[INFO] Cambiando Status a Completado...');
     try {
       const updateRequest = pool.request();
       const updateResult = await updateRequest
@@ -280,8 +285,7 @@ router.post('/api/documentos', async (req, res) => {
         .query(`
           UPDATE ContenedoresPaso1
           SET Status = 'Completado',
-              FechaCompletado = GETDATE(),
-              Activo = 0
+              FechaCompletado = GETDATE()
           WHERE Paso1ID = @Paso1ID
         `);
       console.log(`[OK] Status actualizado a Completado`);
@@ -293,11 +297,11 @@ router.post('/api/documentos', async (req, res) => {
 
     const respuestaFinal = {
       success: true,
-      mensaje: `${documentos.length} documentos guardados. Contenedor completado y archivado automáticamente.`,
+      mensaje: `${documentos.length} documentos guardados. Contenedor marcado como Completado.`,
       paso3Completado: true,
       nuevaState: {
         status: 'Completado',
-        activo: false
+        activo: true
       }
     };
     console.log('[OK] [PASO 3] FINALIZADO EXITOSAMENTE');
@@ -370,9 +374,11 @@ router.get('/api/entrega-turno', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────
 router.get('/api/contenedores', async (req, res) => {
   try {
+    await pool.request().query(INIT_ARCHIVADO_COLUMN);
+
     const result = await pool.request()
       .query(`
-        SELECT 
+        SELECT
           p1.Paso1ID,
           p1.TrailerNo,
           p1.TrailerType,
@@ -393,11 +399,14 @@ router.get('/api/contenedores', async (req, res) => {
           p1.DateExitPort,
           p1.PoNo,
           p1.LoadType,
+          p1.StatusContenedor,
+          p1.YardDestination,
           p1.UsuarioCreadorID,
           p1.FechaCreacion,
           p1.FechaCompletado,
           p1.Status,
           p1.Activo,
+          ISNULL(p1.Archivado, 0) AS Archivado,
           (SELECT TOP 1 ResponsableDescarga FROM ContenedoresPaso2 WHERE Paso1ID = p1.Paso1ID ORDER BY Paso2ID DESC) as ResponsableDescarga,
           (SELECT COUNT(*) FROM ContenedoresPaso2 WHERE Paso1ID = p1.Paso1ID) as Paso2Count,
           (SELECT COUNT(*) FROM ContenedoresPaso3 WHERE Paso1ID = p1.Paso1ID) as Paso3Count,
@@ -485,31 +494,94 @@ router.get('/api/contenedores/:id', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// 6. ARCHIVAR CONTENEDOR (desactivar)
+// 6. ARCHIVAR CONTENEDOR
+//    Duplica el registro completo (Paso1+Paso2+Paso3+Archivos) con
+//    Activo=0, Status='Completado'. El original queda intacto con
+//    Archivado=1. Cada copia tiene su propio Paso1ID → son independientes.
 // ────────────────────────────────────────────────────────────────────
 router.patch('/api/contenedores/:id/archivar', async (req, res) => {
   try {
     const { id } = req.params;
 
-    await pool.request()
+    await pool.request().query(INIT_ARCHIVADO_COLUMN);
+
+    // 1. Duplicar ContenedoresPaso1 con Activo=0, Status='Completado'
+    const copyP1 = await pool.request()
       .input('Paso1ID', sql.Int, id)
       .query(`
-        UPDATE ContenedoresPaso1
-        SET Activo = 0, Status = 'Completado'
+        INSERT INTO ContenedoresPaso1 (
+          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry,
+          LoadType, StatusContenedor, YardDestination, Comments,
+          QtyPallets, EmptyDate, SealSanLuis, DepartureDate,
+          SealYuma, AgingA, ActualDate, ItemType, Aging, BookingNo, DateExitPort,
+          PoNo, UsuarioCreadorID, FechaCreacion, Status, Activo, FechaCompletado
+        )
+        SELECT
+          TrailerNo, TrailerType, SeaContainerType, UsoEmbarques, PortOfEntry,
+          LoadType, StatusContenedor, YardDestination, Comments,
+          QtyPallets, EmptyDate, SealSanLuis, DepartureDate,
+          SealYuma, AgingA, ActualDate, ItemType, Aging, BookingNo, DateExitPort,
+          PoNo, UsuarioCreadorID, FechaCreacion, 'Completado', 0,
+          ISNULL(FechaCompletado, GETDATE())
+        FROM ContenedoresPaso1
+        WHERE Paso1ID = @Paso1ID;
+        SELECT SCOPE_IDENTITY() AS NuevoPaso1ID;
+      `);
+
+    const nuevoID = copyP1.recordset[0].NuevoPaso1ID;
+
+    // 2. Duplicar ContenedoresPaso2
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .input('NuevoPaso1ID', sql.Int, nuevoID)
+      .query(`
+        INSERT INTO ContenedoresPaso2 (
+          Paso1ID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
+          Sellos, Rampa, HoraRegistro, TotalPallets, LongitudContenedor, Origen,
+          Empresas, ResponsableDescarga, FirmaResponsable,
+          Cond1, Cond2, Cond3, Cond4, Cond5, Cond6, Cond7, Cond8, UsuarioInspectorID
+        )
+        SELECT
+          @NuevoPaso1ID, CajaTrailer, Placas, Estado, FechaLlegada, Turno,
+          Sellos, Rampa, HoraRegistro, TotalPallets, LongitudContenedor, Origen,
+          Empresas, ResponsableDescarga, FirmaResponsable,
+          Cond1, Cond2, Cond3, Cond4, Cond5, Cond6, Cond7, Cond8, UsuarioInspectorID
+        FROM ContenedoresPaso2
         WHERE Paso1ID = @Paso1ID
       `);
 
-    res.json({
-      success: true,
-      mensaje: 'Contenedor archivado exitosamente'
-    });
+    // 3. Duplicar ContenedoresPaso3
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .input('NuevoPaso1ID', sql.Int, nuevoID)
+      .query(`
+        INSERT INTO ContenedoresPaso3 (Paso1ID, UsuarioResponsableID, FechaCreacion)
+        SELECT @NuevoPaso1ID, UsuarioResponsableID, FechaCreacion
+        FROM ContenedoresPaso3
+        WHERE Paso1ID = @Paso1ID
+      `);
+
+    // 4. Duplicar Archivos
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .input('NuevoPaso1ID', sql.Int, nuevoID)
+      .query(`
+        INSERT INTO Archivos (Paso1ID, NombreArchivo, TipoArchivo, ContenidoBase64, UsuarioId)
+        SELECT @NuevoPaso1ID, NombreArchivo, TipoArchivo, ContenidoBase64, UsuarioId
+        FROM Archivos
+        WHERE Paso1ID = @Paso1ID
+      `);
+
+    // 5. Marcar original como Archivado=1 (badge en registro)
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .query(`UPDATE ContenedoresPaso1 SET Archivado = 1 WHERE Paso1ID = @Paso1ID`);
+
+    res.json({ success: true, mensaje: 'Contenedor archivado exitosamente' });
 
   } catch (error) {
     console.error('Error archivando:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -630,7 +702,8 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType, comments,
+      trailerNo, trailerType, seaContainerType, usoEmbarques, portOfEntry, loadType,
+      statusContenedor, yardDestination, comments,
       qtyPallets, emptyDate, sealSanLuis, departureDate, sealYuma, agingA,
       actualDate, itemType, aging, bookingNo, dateExitPort, poNo, usuarioID
     } = req.body;
@@ -645,6 +718,8 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
       .input('UsoEmbarques', sql.NVarChar, usoEmbarques)
       .input('PortOfEntry', sql.NVarChar, portOfEntry)
       .input('LoadType', sql.NVarChar, loadType || null)
+      .input('StatusContenedor', sql.NVarChar, statusContenedor || null)
+      .input('YardDestination', sql.NVarChar, yardDestination || null)
       .input('Comments', sql.NVarChar(sql.MAX), comments)
       .input('QtyPallets', sql.Int, qtyPallets || null)
       .input('EmptyDate', sql.Date, emptyDate || null)
@@ -666,6 +741,8 @@ router.patch('/api/contenedores/:id/paso1', async (req, res) => {
           UsoEmbarques = @UsoEmbarques,
           PortOfEntry = @PortOfEntry,
           LoadType = @LoadType,
+          StatusContenedor = @StatusContenedor,
+          YardDestination = @YardDestination,
           Comments = @Comments,
           QtyPallets = @QtyPallets,
           EmptyDate = @EmptyDate,
@@ -871,15 +948,52 @@ router.delete('/api/catalogos/:id', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// REPORTES - Datos agregados para dashboards
+// REPORTES - Datos agregados para dashboards (con filtro de período)
 // ────────────────────────────────────────────────────────────────────
 router.get('/api/reportes', async (req, res) => {
   try {
-    const [statusRes, turnoRes, origenRes, palletsRes, mesRes, totalRes, empresasRes] = await Promise.all([
-      pool.request().query(`SELECT ISNULL(Status, 'Activo') as Status, COUNT(*) as Total FROM ContenedoresPaso1 GROUP BY Status`),
-      pool.request().query(`SELECT ISNULL(Turno, 'Sin turno') as Turno, COUNT(*) as Total FROM ContenedoresPaso2 GROUP BY Turno ORDER BY Turno`),
-      pool.request().query(`SELECT ISNULL(Origen, 'Sin origen') as Origen, COUNT(*) as Total FROM ContenedoresPaso2 WHERE Origen IS NOT NULL AND Origen != '' GROUP BY Origen ORDER BY Total DESC`),
-      pool.request().query(`SELECT ISNULL(SUM(TotalPallets), 0) as TotalPallets FROM ContenedoresPaso2`),
+    const { periodo = 'dia' } = req.query;
+
+    const buildFiltro = (col) => {
+      switch (periodo) {
+        case 'semana':
+          return `CAST(${col} AS DATE) >= CAST(DATEADD(DAY, -6, CAST(GETDATE() AS DATE)) AS DATE) AND CAST(${col} AS DATE) <= CAST(GETDATE() AS DATE)`;
+        case 'mes':
+          return `YEAR(${col}) = YEAR(GETDATE()) AND MONTH(${col}) = MONTH(GETDATE())`;
+        default:
+          return `CAST(${col} AS DATE) = CAST(GETDATE() AS DATE)`;
+      }
+    };
+
+    const f1   = buildFiltro('FechaCreacion');
+    const fp1  = buildFiltro('p1.FechaCreacion');
+
+    const [statusRes, turnoRes, origenRes, palletsRes, mesRes, totalRes, empresasRes, contenedoresRes, origenPalletsRes] = await Promise.all([
+      pool.request().query(`SELECT ISNULL(Status, 'Activo') as Status, COUNT(*) as Total FROM ContenedoresPaso1 WHERE ${f1} GROUP BY Status`),
+
+      pool.request().query(`
+        SELECT ISNULL(p2.Turno, 'Sin turno') as Turno, COUNT(*) as Total
+        FROM ContenedoresPaso2 p2
+        INNER JOIN ContenedoresPaso1 p1 ON p1.Paso1ID = p2.Paso1ID
+        WHERE ${fp1}
+        GROUP BY p2.Turno ORDER BY p2.Turno
+      `),
+
+      pool.request().query(`
+        SELECT ISNULL(p2.Origen, 'Sin origen') as Origen, COUNT(*) as Total
+        FROM ContenedoresPaso2 p2
+        INNER JOIN ContenedoresPaso1 p1 ON p1.Paso1ID = p2.Paso1ID
+        WHERE ${fp1} AND p2.Origen IS NOT NULL AND p2.Origen != ''
+        GROUP BY p2.Origen ORDER BY Total DESC
+      `),
+
+      pool.request().query(`
+        SELECT ISNULL(SUM(p2.TotalPallets), 0) as TotalPallets
+        FROM ContenedoresPaso2 p2
+        INNER JOIN ContenedoresPaso1 p1 ON p1.Paso1ID = p2.Paso1ID
+        WHERE ${fp1}
+      `),
+
       pool.request().query(`
         SELECT FORMAT(FechaCreacion, 'yyyy-MM') as Mes, COUNT(*) as Total
         FROM ContenedoresPaso1
@@ -887,8 +1001,46 @@ router.get('/api/reportes', async (req, res) => {
         GROUP BY FORMAT(FechaCreacion, 'yyyy-MM')
         ORDER BY Mes
       `),
-      pool.request().query(`SELECT COUNT(*) as Total FROM ContenedoresPaso1`),
-      pool.request().query(`SELECT Empresas FROM ContenedoresPaso2 WHERE Empresas IS NOT NULL AND Empresas != '[]' AND Empresas != ''`)
+
+      pool.request().query(`SELECT COUNT(*) as Total FROM ContenedoresPaso1 WHERE ${f1}`),
+
+      pool.request().query(`
+        SELECT p2.Empresas FROM ContenedoresPaso2 p2
+        INNER JOIN ContenedoresPaso1 p1 ON p1.Paso1ID = p2.Paso1ID
+        WHERE ${fp1} AND p2.Empresas IS NOT NULL AND p2.Empresas != '[]' AND p2.Empresas != ''
+      `),
+
+      pool.request().query(`
+        SELECT
+          p1.Paso1ID,
+          p1.TrailerNo,
+          ISNULL(p1.Status, 'En proceso') as Status,
+          p1.FechaCreacion,
+          p1.FechaCompletado,
+          ISNULL(p2.Origen, '—') as Origen,
+          ISNULL(p2.TotalPallets, 0) as TotalPallets,
+          ISNULL(p2.Turno, '—') as Turno,
+          ISNULL(p2.Rampa, '—') as Rampa
+        FROM ContenedoresPaso1 p1
+        LEFT JOIN (
+          SELECT * FROM ContenedoresPaso2
+          WHERE Paso2ID IN (SELECT MAX(Paso2ID) FROM ContenedoresPaso2 GROUP BY Paso1ID)
+        ) p2 ON p2.Paso1ID = p1.Paso1ID
+        WHERE ${fp1}
+        ORDER BY p1.FechaCreacion DESC
+      `),
+
+      pool.request().query(`
+        SELECT
+          ISNULL(p2.Origen, 'Sin origen') as Origen,
+          ISNULL(SUM(p2.TotalPallets), 0) as TotalPallets,
+          COUNT(*) as Contenedores
+        FROM ContenedoresPaso2 p2
+        INNER JOIN ContenedoresPaso1 p1 ON p1.Paso1ID = p2.Paso1ID
+        WHERE ${fp1} AND p2.Origen IS NOT NULL AND p2.Origen != ''
+        GROUP BY p2.Origen
+        ORDER BY TotalPallets DESC
+      `)
     ]);
 
     const empresasCount = {};
@@ -904,13 +1056,16 @@ router.get('/api/reportes', async (req, res) => {
 
     res.json({
       success: true,
+      periodo,
       porStatus: statusRes.recordset,
       porTurno: turnoRes.recordset,
       porOrigen: origenRes.recordset,
       palletsTotales: palletsRes.recordset[0]?.TotalPallets || 0,
       porMes: mesRes.recordset,
       totalContenedores: totalRes.recordset[0]?.Total || 0,
-      porEmpresa
+      porEmpresa,
+      contenedores: contenedoresRes.recordset,
+      porOrigenPallets: origenPalletsRes.recordset
     });
   } catch (error) {
     console.error('Error GET reportes:', error);
@@ -1140,6 +1295,15 @@ router.patch('/api/usuarios/:id/activo', async (req, res) => {
 // ENTREGAS GUARDADAS DE TURNO
 // ────────────────────────────────────────────────────────────────────
 
+const INIT_ARCHIVADO_COLUMN = `
+  IF NOT EXISTS (SELECT 1 FROM sys.columns
+                 WHERE Name = N'Archivado'
+                 AND Object_ID = Object_ID(N'ContenedoresPaso1'))
+  BEGIN
+    ALTER TABLE ContenedoresPaso1 ADD Archivado BIT NOT NULL DEFAULT 0;
+  END
+`;
+
 const INIT_ENTREGAS_TABLE = `
   IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='EntregasTurnoGuardadas' AND xtype='U')
   CREATE TABLE EntregasTurnoGuardadas (
@@ -1213,6 +1377,50 @@ router.get('/api/entregas-guardadas/:id/datos', async (req, res) => {
     res.json({ success: true, datos: JSON.parse(result.recordset[0].DatosJSON) });
   } catch (error) {
     console.error('Error GET entregas-guardadas datos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+// VACIAR CAMPOS OPCIONALES (solo para registros archivados)
+// Conserva: TrailerNo, TrailerType, ActualDate, PoNo (campos con *)
+// ────────────────────────────────────────────────────────────────────
+router.patch('/api/contenedores/:id/vaciar', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await pool.request()
+      .input('Paso1ID', sql.Int, id)
+      .query(`
+        UPDATE ContenedoresPaso1 SET
+          SeaContainerType  = NULL,
+          UsoEmbarques      = NULL,
+          PortOfEntry       = NULL,
+          LoadType          = NULL,
+          Comments          = NULL,
+          QtyPallets        = NULL,
+          EmptyDate         = NULL,
+          SealSanLuis       = NULL,
+          DepartureDate     = NULL,
+          SealYuma          = NULL,
+          AgingA            = NULL,
+          ItemType          = NULL,
+          Aging             = NULL,
+          BookingNo         = NULL,
+          DateExitPort      = NULL,
+          Status            = 'En proceso',
+          FechaCompletado   = NULL
+        WHERE Paso1ID = @Paso1ID;
+
+        UPDATE ContenedoresPaso2 SET
+          Cond1 = 0, Cond2 = 0, Cond3 = 0, Cond4 = 0,
+          Cond5 = 0, Cond6 = 0, Cond7 = 0, Cond8 = 0
+        WHERE Paso1ID = @Paso1ID
+      `);
+
+    res.json({ success: true, mensaje: 'Campos vaciados correctamente' });
+  } catch (error) {
+    console.error('Error vaciando:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

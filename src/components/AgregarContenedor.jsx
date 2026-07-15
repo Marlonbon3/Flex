@@ -22,6 +22,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     usoEmbarques: '',
     portOfEntry: '',
     loadType: '',
+    statusContenedor: '',
+    yardDestination: '',
     comments: '',
 
     // Paso 2: Inspección de Trailer/Contenedor
@@ -67,6 +69,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
 
   const [attachments, setAttachments] = useState([]);
   const [archivosExistentes, setArchivosExistentes] = useState([]);
+  const [longitudPersonalizada, setLongitudPersonalizada] = useState('');
   const [paso1IDState, setPaso1IDState] = useState(initialPaso1ID || null);
   const [loading, setLoading] = useState(false);
   const [catalogos, setCatalogos] = useState({
@@ -74,6 +77,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
     usoEmbarques: [],
     portOfEntry: [],
     loadType: [],
+    statusContenedor: [],
+    yardDestination: [],
     responsable: [],
     poNo: [],
     empresas: [],
@@ -246,18 +251,20 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
   // Cargar catálogos de listas configurables
   React.useEffect(() => {
     const cargarCatalogos = async () => {
-      const listas = ['trailerType', 'usoEmbarques', 'portOfEntry', 'loadType', 'responsable', 'poNo', 'empresas', 'origen', 'longitudContenedor'];
+      const listas = ['trailerType', 'usoEmbarques', 'portOfEntry', 'loadType', 'statusContenedor', 'yardDestination', 'responsable', 'poNo', 'empresas', 'origen', 'longitudContenedor'];
       const resultados = await Promise.all(listas.map(l => api.obtenerCatalogo(l)));
       setCatalogos({
         trailerType: resultados[0],
         usoEmbarques: resultados[1],
         portOfEntry: resultados[2],
         loadType: resultados[3],
-        responsable: resultados[4],
-        poNo: resultados[5],
-        empresas: resultados[6],
-        origen: resultados[7],
-        longitudContenedor: resultados[8]
+        statusContenedor: resultados[4],
+        yardDestination: resultados[5],
+        responsable: resultados[6],
+        poNo: resultados[7],
+        empresas: resultados[8],
+        origen: resultados[9],
+        longitudContenedor: resultados[10]
       });
     };
     cargarCatalogos();
@@ -285,6 +292,8 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
             usoEmbarques: datosCompletos.UsoEmbarques || '',
             portOfEntry: datosCompletos.PortOfEntry || '',
             loadType: datosCompletos.LoadType || '',
+            statusContenedor: datosCompletos.StatusContenedor || '',
+            yardDestination: datosCompletos.YardDestination || '',
             comments: datosCompletos.Comments || '',
             qtyPallets: datosCompletos.QtyPallets || '',
             emptyDate: datosCompletos.EmptyDate ? new Date(datosCompletos.EmptyDate).toISOString().split('T')[0] : '',
@@ -404,8 +413,12 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
               }
             }
 
+            const longitudOtroItem2 = catalogos.longitudContenedor.find(i => i.Etiqueta?.toLowerCase().includes('otro'));
+            const esOtro2 = longitudOtroItem2 && formData.longitudContenedor === longitudOtroItem2.Valor;
+
             const inspeccionData = {
               ...formData,
+              longitudContenedor: esOtro2 ? longitudPersonalizada : formData.longitudContenedor,
               horaRegistro: horaLimpia,
               empresas: formData.empresas || [],
               paso1ID: paso1IDState
@@ -493,8 +506,12 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
           firmaFinal = signatureCanvasRef.current.toDataURL('image/png');
         }
 
+        const longitudOtroItemSave = catalogos.longitudContenedor.find(i => i.Etiqueta?.toLowerCase().includes('otro'));
+        const esOtroSave = longitudOtroItemSave && formData.longitudContenedor === longitudOtroItemSave.Valor;
+
         const inspeccionData = {
           ...formData,
+          longitudContenedor: esOtroSave ? longitudPersonalizada : formData.longitudContenedor,
           firmaResponsable: firmaFinal,
           horaRegistro: horaLimpia,
           empresas: formData.empresas || [],
@@ -526,7 +543,7 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
         const response = await api.guardarPaso3(paso1IdFinal, attachments, usuarioID);
 
         if (response.success) {
-          toast('¡Contenedor completado y archivado!', 'success');
+          toast('¡Documentos guardados! Usa el botón Archivar para enviar al archivo.', 'success');
           setTimeout(() => {
             onClose();
           }, 1000);
@@ -684,6 +701,36 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                   >
                     <option value="">Selecciona el tipo de carga</option>
                     {catalogos.loadType.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="statusContenedor">STATUS</label>
+                  <select
+                    id="statusContenedor"
+                    name="statusContenedor"
+                    value={formData.statusContenedor}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Selecciona el status</option>
+                    {catalogos.statusContenedor.map(item => (
+                      <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="yardDestination">YARD / DESTINATION</label>
+                  <select
+                    id="yardDestination"
+                    name="yardDestination"
+                    value={formData.yardDestination}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Selecciona destino/yard</option>
+                    {catalogos.yardDestination.map(item => (
                       <option key={item.ListaID} value={item.Valor}>{item.Etiqueta}</option>
                     ))}
                   </select>
@@ -1079,6 +1126,22 @@ export default function AgregarContenedor({ onClose, initialPaso1ID, contenedorD
                       </label>
                     ))}
                   </div>
+                  {(() => {
+                    const otroItem = catalogos.longitudContenedor.find(i => i.Etiqueta?.toLowerCase().includes('otro'));
+                    return otroItem && formData.longitudContenedor === otroItem.Valor ? (
+                      <div className="form-group" style={{ marginTop: '12px' }}>
+                        <label htmlFor="longitudPersonalizada">Especifica las pulgadas</label>
+                        <input
+                          id="longitudPersonalizada"
+                          type="number"
+                          placeholder="Ej. 56"
+                          value={longitudPersonalizada}
+                          onChange={e => setLongitudPersonalizada(e.target.value)}
+                          style={{ maxWidth: '180px' }}
+                        />
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Origen */}

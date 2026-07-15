@@ -475,6 +475,18 @@ export const crearUsuario = async (payload) => {
   }
 };
 
+export const vaciarContenedor = async (contenedorID) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/contenedores/${contenedorID}/vaciar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 export const toggleActivoUsuario = async (id, activo) => {
   try {
     const response = await fetch(`${API_BASE_URL}/usuarios/${id}/activo`, {
@@ -520,9 +532,9 @@ export const eliminarArchivo = async (archivoID) => {
 // ────────────────────────────────────────────────────────────────────
 // 15. REPORTES - Datos agregados
 // ────────────────────────────────────────────────────────────────────
-export const obtenerReportes = async () => {
+export const obtenerReportes = async (periodo = 'dia') => {
   try {
-    const response = await fetch(`${API_BASE_URL}/reportes`);
+    const response = await fetch(`${API_BASE_URL}/reportes?periodo=${encodeURIComponent(periodo)}`);
     const data = await response.json();
     if (!data.success) throw new Error(data.error);
     return data;

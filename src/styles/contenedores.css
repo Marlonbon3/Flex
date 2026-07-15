@@ -162,6 +162,42 @@
   color: #2e7d32;
 }
 
+.status-badge.en-proceso {
+  background: #fff8e1;
+  color: #b45309;
+}
+
+.status-badge.completado {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.empty-type {
+  background: #fce8e8;
+  color: #c62828;
+}
+
+.status-badge.status-custom {
+  background: #eef4ff;
+  color: #0a46ff;
+}
+
+.archivado-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 7px;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  width: fit-content;
+}
+
 /* Actions Cell */
 .actions-cell {
   text-align: center;
@@ -357,6 +393,11 @@
 .menu-option.eliminar:hover {
   background: #fff1f2;
   color: #be123c;
+}
+
+.menu-option.vaciar:hover {
+  background: #f0fdf4;
+  color: #15803d;
 }
 
 /* Row hover effect */

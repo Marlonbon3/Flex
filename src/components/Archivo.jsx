@@ -14,6 +14,9 @@ export default function Archivo() {
   const { toast, confirm } = useAlert()
   const [contenedores, setContenedores] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const usuario = api.obtenerUsuarioActual()
+  const puedeEditar = usuario?.rol?.toLowerCase() !== 'supervisor'
   const [searchTerm, setSearchTerm] = useState('')
   const hoyLocal = (() => {
     const n = new Date()
@@ -37,14 +40,12 @@ export default function Archivo() {
       const contenedoresArchivados = todosLosContenedores.filter(c =>
         !c.Activo && c.Status === 'Completado'
       )
-
       const vistosSet = new Set()
       const contenedoresDedupados = contenedoresArchivados.filter(c => {
         if (vistosSet.has(c.Paso1ID)) return false
         vistosSet.add(c.Paso1ID)
         return true
       })
-
       setContenedores(contenedoresDedupados)
     } catch (error) {
       console.error('Error cargando contenedores archivados:', error)
@@ -55,7 +56,7 @@ export default function Archivo() {
   }
 
   const handleEliminarContenedor = async (paso1ID) => {
-    const ok = await confirm('¿Estás seguro de que deseas eliminar este contenedor?')
+    const ok = await confirm('¿Eliminar este registro del archivo? El registro original no se verá afectado.')
     if (!ok) return
     try {
       const response = await fetch(`http://localhost:5000/api/contenedores/${paso1ID}`, {
@@ -63,14 +64,14 @@ export default function Archivo() {
       })
       const data = await response.json()
       if (data.success) {
-        toast('Contenedor eliminado exitosamente', 'success')
+        toast('Registro eliminado del archivo', 'success')
         cargarContenedores()
       } else {
         toast('Error al eliminar: ' + (data.error || 'Error desconocido'), 'error')
       }
     } catch (error) {
-      console.error('Error eliminando contenedor:', error)
-      toast('Error al eliminar contenedor', 'error')
+      console.error('Error eliminando del archivo:', error)
+      toast('Error al eliminar del archivo', 'error')
     }
   }
 
@@ -317,20 +318,24 @@ export default function Archivo() {
                           >
                             <BsFilePdf size={18} />
                           </button>
-                          <button
-                            className="action-btn edit-btn"
-                            title="Editar"
-                            onClick={() => setContenedorEditar({ paso1ID: c.Paso1ID, trailerNo: c.TrailerNo })}
-                          >
-                            <MdEdit size={18} />
-                          </button>
-                          <button
-                            className="action-btn delete-btn"
-                            title="Eliminar"
-                            onClick={() => handleEliminarContenedor(c.Paso1ID)}
-                          >
-                            <MdDelete size={18} />
-                          </button>
+                          {puedeEditar && (
+                            <>
+                              <button
+                                className="action-btn edit-btn"
+                                title="Editar"
+                                onClick={() => setContenedorEditar({ paso1ID: c.Paso1ID, trailerNo: c.TrailerNo })}
+                              >
+                                <MdEdit size={18} />
+                              </button>
+                              <button
+                                className="action-btn delete-btn"
+                                title="Eliminar del archivo"
+                                onClick={() => handleEliminarContenedor(c.Paso1ID)}
+                              >
+                                <MdDelete size={18} />
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}

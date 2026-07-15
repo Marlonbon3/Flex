@@ -5,12 +5,18 @@ import '../styles/entregaTurno.css'
 import { useAlert } from './AlertProvider'
 import { exportarEntregaTurno } from '../utils/excelExporter'
 import DatePickerTablet from './DatePickerTablet'
+import { obtenerUsuarioActual } from '../services/api'
 
 const API_BASE = 'http://localhost:5000/api'
 
 function detectarTurno() {
-  const hora = new Date().getHours()
-  return hora < 12 ? '1er turno' : '2do turno'
+  const now = new Date()
+  const hora = now.getHours()
+  const min = now.getMinutes()
+  // 1er turno: 6:45 AM – 6:45 PM
+  const despues645am = hora > 6 || (hora === 6 && min >= 45)
+  const antes645pm = hora < 18 || (hora === 18 && min < 45)
+  return despues645am && antes645pm ? '1er turno' : '2do turno'
 }
 
 function hoyISO() {
@@ -38,10 +44,14 @@ export default function EntregaTurno() {
   const { toast, confirm } = useAlert()
   const [fecha, setFecha] = useState(hoyISO())
   const [turno, setTurno] = useState(detectarTurno())
+
+  const usuario = obtenerUsuarioActual()
+  const puedeEditar = usuario?.rol?.toLowerCase() !== 'supervisor'
   const [contenedores, setContenedores] = useState([])
   const [loading, setLoading] = useState(false)
   const [entregasGuardadas, setEntregasGuardadas] = useState([])
   const [loadingEntregas, setLoadingEntregas] = useState(false)
+  const [fechaFiltroEntregas, setFechaFiltroEntregas] = useState(hoyISO())
 
   const cargarDatos = async () => {
     if (!fecha) return
@@ -149,10 +159,12 @@ export default function EntregaTurno() {
           <p>Contenedores completados y archivados para el turno seleccionado.</p>
         </div>
         <div className="header-actions">
-          <button className="btn-primary" onClick={guardarEntrega}>
-            <MdSave size={18} />
-            Guardar entrega
-          </button>
+          {puedeEditar && (
+            <button className="btn-primary" onClick={guardarEntrega}>
+              <MdSave size={18} />
+              Guardar entrega
+            </button>
+          )}
           <button className="btn-secondary" onClick={cargarDatos}>
             <FiRefreshCw size={16} />
             Actualizar
@@ -178,8 +190,8 @@ export default function EntregaTurno() {
             onChange={(e) => setTurno(e.target.value)}
             className="select-filtro"
           >
-            <option value="1er turno">1er turno (08:00 AM – 12:00 PM)</option>
-            <option value="2do turno">2do turno (12:00 PM – 04:00 PM)</option>
+            <option value="1er turno">1er turno (6:45 AM – 6:45 PM)</option>
+            <option value="2do turno">2do turno (6:45 PM – 6:45 AM)</option>
           </select>
         </div>
 
@@ -258,72 +270,96 @@ export default function EntregaTurno() {
       <div className="entregas-guardadas-section">
         <div className="entregas-guardadas-header">
           <h3>Entregas de turno guardadas</h3>
-          <button className="btn-secondary entregas-refresh-btn" onClick={cargarEntregasGuardadas} title="Actualizar">
+          <div className="entregas-filtro-fecha">
+            <label>Fecha</label>
+            <DatePickerTablet
+              value={fechaFiltroEntregas}
+              onChange={(e) => setFechaFiltroEntregas(e.target.value)}
+            />
+            <button
+              className="btn-secondary entregas-refresh-btn"
+              onClick={() => setFechaFiltroEntregas(hoyISO())}
+              title="Hoy"
+            >
+              <FiRefreshCw size={14} />
+            </button>
+          </div>
+          <button className="btn-secondary entregas-refresh-btn" onClick={cargarEntregasGuardadas} title="Actualizar lista">
             <FiRefreshCw size={14} />
           </button>
         </div>
-        <div className="tabla-contenedor">
-          <div className="tabla-wrapper">
-            <table className="tabla-principal">
-              <thead>
-                <tr className="subencabezado-tabla">
-                  <th>Fecha guardado</th>
-                  <th>Fecha turno</th>
-                  <th>Turno</th>
-                  <th>Total tráilas</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingEntregas ? (
-                  <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '16px' }}>Cargando...</td>
-                  </tr>
-                ) : entregasGuardadas.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '16px', color: '#7b8aa3' }}>
-                      No hay entregas guardadas
-                    </td>
-                  </tr>
-                ) : (
-                  entregasGuardadas.map((e) => (
-                    <tr key={e.EntregaGuardadaID} className="fila-datos">
-                      <td className="celda-solo-lectura">
-                        {new Date(e.FechaGuardado).toLocaleString('es-ES')}
-                      </td>
-                      <td className="celda-solo-lectura">{String(e.Fecha).split('T')[0]}</td>
-                      <td className="celda-solo-lectura">{e.Turno}</td>
-                      <td className="celda-solo-lectura">
-                        <span className="badge-total" style={{ padding: '3px 10px', fontSize: '13px' }}>
-                          {e.TotalTrailas}
-                        </span>
-                      </td>
-                      <td className="celda-solo-lectura">
-                        <div className="entrega-acciones">
-                          <button
-                            className="btn-accion-entrega btn-exportar"
-                            title="Exportar a Excel"
-                            onClick={() => handleExportarEntrega(e)}
-                          >
-                            <MdFileDownload size={16} />
-                            <span>Exportar a Excel</span>
-                          </button>
-                          <button
-                            className="btn-accion-entrega btn-eliminar"
-                            title="Eliminar"
-                            onClick={() => handleEliminarEntrega(e.EntregaGuardadaID)}
-                          >
-                            <MdDelete size={16} />
-                          </button>
-                        </div>
-                      </td>
+
+        {(() => {
+          const entregasFiltradas = entregasGuardadas.filter(e =>
+            String(e.Fecha).split('T')[0] === fechaFiltroEntregas
+          )
+          return (
+            <div className="tabla-contenedor">
+              <div className="tabla-wrapper">
+                <table className="tabla-principal">
+                  <thead>
+                    <tr className="subencabezado-tabla">
+                      <th>Hora guardado</th>
+                      <th>Fecha turno</th>
+                      <th>Turno</th>
+                      <th>Total tráilas</th>
+                      <th>Acciones</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody>
+                    {loadingEntregas ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '16px' }}>Cargando...</td>
+                      </tr>
+                    ) : entregasFiltradas.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '16px', color: '#7b8aa3' }}>
+                          No hay entregas guardadas para el {fechaFiltroEntregas}
+                        </td>
+                      </tr>
+                    ) : (
+                      entregasFiltradas.map((e) => (
+                        <tr key={e.EntregaGuardadaID} className="fila-datos">
+                          <td className="celda-solo-lectura">
+                            {new Date(e.FechaGuardado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="celda-solo-lectura">{String(e.Fecha).split('T')[0]}</td>
+                          <td className="celda-solo-lectura">{e.Turno}</td>
+                          <td className="celda-solo-lectura">
+                            <span className="badge-total" style={{ padding: '3px 10px', fontSize: '13px' }}>
+                              {e.TotalTrailas}
+                            </span>
+                          </td>
+                          <td className="celda-solo-lectura">
+                            <div className="entrega-acciones">
+                              <button
+                                className="btn-accion-entrega btn-exportar"
+                                title="Exportar a Excel"
+                                onClick={() => handleExportarEntrega(e)}
+                              >
+                                <MdFileDownload size={16} />
+                                <span>Exportar a Excel</span>
+                              </button>
+                              {puedeEditar && (
+                                <button
+                                  className="btn-accion-entrega btn-eliminar"
+                                  title="Eliminar"
+                                  onClick={() => handleEliminarEntrega(e.EntregaGuardadaID)}
+                                >
+                                  <MdDelete size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

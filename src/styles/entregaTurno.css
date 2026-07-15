@@ -660,7 +660,18 @@
 .entregas-guardadas-header {
   display: flex;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   justify-content: space-between;
+}
+
+.entregas-filtro-fecha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
 }
 
 .entregas-guardadas-header h3 {

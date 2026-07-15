@@ -50,6 +50,11 @@
     });
   });
 
+  // 404 — ruta no encontrada (siempre JSON, nunca HTML)
+  app.use((req, res, next) => {
+    res.status(404).json({ success: false, error: `Ruta no encontrada: ${req.method} ${req.path}` });
+  });
+
   // Manejo de errores global
   app.use((err, req, res, next) => {
     console.error('❌ Error:', err);

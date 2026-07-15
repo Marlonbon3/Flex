@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { MdAdd, MdArchive, MdDelete } from 'react-icons/md'
+import { MdAdd, MdArchive, MdDelete, MdCheckCircle, MdLayersClear } from 'react-icons/md'
 import { HiEllipsisVertical } from 'react-icons/hi2'
 import '../styles/contenedores.css'
 import AgregarContenedor from './AgregarContenedor'
@@ -15,6 +15,10 @@ export default function Contenedores() {
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
   const dropdownRef = useRef(null)
+
+  const usuario = api.obtenerUsuarioActual()
+  const rol = usuario?.rol?.toLowerCase()
+  const puedeEditar = rol !== 'supervisor'
 
   useEffect(() => {
     cargarContenedores()
@@ -41,7 +45,7 @@ export default function Contenedores() {
       setLoading(true)
       const contenedores = await api.obtenerTodosLosContenedores()
 
-      const contenedoresActivos = contenedores.filter(c => c.Activo && (!c.Status || c.Status === 'En proceso'))
+      const contenedoresActivos = contenedores.filter(c => c.Activo)
 
       const vistosSet = new Set()
       const contenedoresDedupados = contenedoresActivos.filter(c => {
@@ -57,7 +61,11 @@ export default function Contenedores() {
         contenedor: c.SeaContainerType || 'N/A',
         puertoEntrada: c.PortOfEntry || 'N/A',
         llegada: c.FechaCreacion ? new Date(c.FechaCreacion).toLocaleString('es-ES') : 'N/A',
-        status: c.Status || (c.Paso2Completado ? 'PASO2' : 'En proceso'),
+        status: c.Status || 'En proceso',
+        statusContenedor: c.StatusContenedor || '',
+        loadType: c.LoadType || '',
+        yardDestination: c.YardDestination || '',
+        archivado: !!c.Archivado,
         paso2ID: c.Paso2ID,
         paso3ID: c.Paso3ID
       }))
@@ -138,6 +146,24 @@ export default function Contenedores() {
     }
   }
 
+  const handleVaciar = async (id, e) => {
+    e.stopPropagation()
+    setMenuAbierto(null)
+    const ok = await confirm('¿Vaciar los campos opcionales? Se conservarán Trailer No., Trailer Type, Actual Date y P.O.#')
+    if (!ok) return
+    try {
+      const resultado = await api.vaciarContenedor(id)
+      if (resultado.success) {
+        toast('Campos vaciados correctamente', 'success')
+        cargarContenedores()
+      } else {
+        toast('Error: ' + resultado.error, 'error')
+      }
+    } catch (error) {
+      toast('Error vaciando: ' + error.message, 'error')
+    }
+  }
+
   const getStatusClass = (status) => {
     return status.toLowerCase()
   }
@@ -145,10 +171,12 @@ export default function Contenedores() {
   return (
     <div className="contenedores-container">
       <div className="header-actions">
-        <button className="btn-primary" onClick={handleAgregar}>
-          <MdAdd className="btn-icon" />
-          Agregar nuevo contenedor
-        </button>
+        {puedeEditar && (
+          <button className="btn-primary" onClick={handleAgregar}>
+            <MdAdd className="btn-icon" />
+            Agregar nuevo contenedor
+          </button>
+        )}
       </div>
 
       <div className="table-wrapper">
@@ -161,45 +189,66 @@ export default function Contenedores() {
               <th>PUERTO DE ENTRADA</th>
               <th>LLEGADA</th>
               <th>STATUS</th>
+              <th>YARD / DESTINATION</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
                   Cargando contenedores...
                 </td>
               </tr>
             ) : trailers.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
                   No hay contenedores registrados
                 </td>
               </tr>
             ) : (
               trailers.map((trailer) => (
-                <tr key={trailer.paso1ID} onClick={() => handleClickFila(trailer)} style={{ cursor: 'pointer' }}>
+                <tr
+                  key={trailer.paso1ID}
+                  onClick={() => puedeEditar && handleClickFila(trailer)}
+                  style={{ cursor: puedeEditar ? 'pointer' : 'default' }}
+                >
                   <td className="trailer-no">{trailer.trailerNo}</td>
                   <td>{trailer.tipo}</td>
                   <td>{trailer.contenedor}</td>
                   <td>{trailer.puertoEntrada}</td>
                   <td>{trailer.llegada}</td>
                   <td>
-                    <span className={`status-badge ${getStatusClass(trailer.status)}`}>
-                      {trailer.status}
-                    </span>
+                    {trailer.statusContenedor
+                      ? <span className="status-badge status-custom">{trailer.statusContenedor}</span>
+                      : trailer.loadType?.toUpperCase() === 'EMPTY'
+                        ? <span className="status-badge empty-type">EMPTY</span>
+                        : trailer.status === 'Completado'
+                          ? <span className="status-badge completado">Completado</span>
+                          : <span className="status-badge en-proceso">En proceso</span>
+                    }
+                  </td>
+                  <td>
+                    {trailer.yardDestination || '—'}
+                    {trailer.archivado && (
+                      <div className="archivado-indicator">
+                        <MdCheckCircle size={12} />
+                        Archivado
+                      </div>
+                    )}
                   </td>
                   <td className="actions-cell">
-                    <div className="menu-container">
-                      <button
-                        className="action-btn"
-                        onClick={(e) => handleMenuToggle(e, trailer.paso1ID)}
-                        title="Opciones"
-                      >
-                        <HiEllipsisVertical />
-                      </button>
-                    </div>
+                    {puedeEditar && (
+                      <div className="menu-container">
+                        <button
+                          className="action-btn"
+                          onClick={(e) => handleMenuToggle(e, trailer.paso1ID)}
+                          title="Opciones"
+                        >
+                          <HiEllipsisVertical />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -208,26 +257,37 @@ export default function Contenedores() {
         </table>
       </div>
 
-      {menuAbierto && (
-        <div
-          ref={dropdownRef}
-          className="dropdown-menu"
-          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
-        >
-          <button
-            className="menu-option archivar"
-            onClick={(e) => handleArchivar(menuAbierto, e)}
+      {menuAbierto && (() => {
+        const trailerActivo = trailers.find(t => t.paso1ID === menuAbierto)
+        return (
+          <div
+            ref={dropdownRef}
+            className="dropdown-menu"
+            style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
           >
-            <MdArchive size={15} /> Archivar
-          </button>
-          <button
-            className="menu-option eliminar"
-            onClick={(e) => handleEliminar(menuAbierto, e)}
-          >
-            <MdDelete size={15} /> Eliminar
-          </button>
-        </div>
-      )}
+            <button
+              className="menu-option archivar"
+              onClick={(e) => handleArchivar(menuAbierto, e)}
+            >
+              <MdArchive size={15} /> Archivar
+            </button>
+            {trailerActivo?.archivado && (
+              <button
+                className="menu-option vaciar"
+                onClick={(e) => handleVaciar(menuAbierto, e)}
+              >
+                <MdLayersClear size={15} /> Vaciar
+              </button>
+            )}
+            <button
+              className="menu-option eliminar"
+              onClick={(e) => handleEliminar(menuAbierto, e)}
+            >
+              <MdDelete size={15} /> Eliminar
+            </button>
+          </div>
+        )
+      })()}
 
       <div className="table-footer">
         <p>Mostrando {trailers.length} trailers activos en el flujo operativo.</p>

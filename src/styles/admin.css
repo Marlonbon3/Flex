@@ -295,6 +295,91 @@
 .admin-btn-activar    { background: #fff; border-color: #a7f3d0; color: #10b981; }
 .admin-btn-activar:hover { background: #ecfdf5; }
 
+/* Role descriptions */
+.admin-roles-info {
+  grid-column: span 2;
+  margin-top: 4px;
+}
+
+.admin-roles-info h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0A1B5B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+}
+
+.admin-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 700px) {
+  .admin-roles-grid { grid-template-columns: 1fr; }
+  .admin-roles-info { grid-column: span 1; }
+}
+
+.admin-rol-card {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e3eaf3;
+  background: #fff;
+}
+
+.admin-rol-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.admin-rol-card p {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: #7b8aa3;
+  line-height: 1.5;
+}
+
+.admin-rol-desc-selected {
+  grid-column: span 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 700px) { .admin-rol-desc-selected { grid-column: span 1; } }
+
+.admin-rol-desc-selected .admin-rol-desc-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.admin-rol-desc-selected strong {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 3px;
+}
+
+.admin-rol-desc-selected p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* No access */
 .admin-no-access {
   text-align: center;

@@ -10,6 +10,8 @@ const LISTAS = [
   { key: 'usoEmbarques',       label: 'Uso Embarques' },
   { key: 'portOfEntry',        label: 'Port of Entry' },
   { key: 'loadType',           label: 'Load Type' },
+  { key: 'statusContenedor',   label: 'Status' },
+  { key: 'yardDestination',    label: 'Yard / Destination' },
   { key: 'responsable',        label: 'Responsible' },
   { key: 'poNo',               label: 'P.O. #' },
   { key: 'empresas',           label: 'Empresas' },
@@ -18,6 +20,27 @@ const LISTAS = [
 ]
 
 const ROLES = ['Admin', 'Operador', 'Supervisor']
+
+const ROLE_DESCRIPTIONS = {
+  Admin: {
+    color: '#dbeafe',
+    textColor: '#1d4ed8',
+    icon: '🛡️',
+    desc: 'Acceso total al sistema. Gestiona usuarios, configura listas, visualiza reportes y puede modificar o eliminar cualquier registro.'
+  },
+  Supervisor: {
+    color: '#fef9c3',
+    textColor: '#92400e',
+    icon: '👁️',
+    desc: 'Puede ver registros, generar reportes, archivar contenedores y supervisar el flujo operativo. No puede gestionar usuarios ni modificar la configuración del sistema.'
+  },
+  Operador: {
+    color: '#d1fae5',
+    textColor: '#065f46',
+    icon: '⚙️',
+    desc: 'Registra nuevos contenedores, completa los pasos del proceso y actualiza documentos. Acceso limitado a las funciones básicas de operación.'
+  }
+}
 
 export default function Admin() {
   const { toast, confirm } = useAlert()
@@ -258,6 +281,34 @@ export default function Admin() {
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+
+              {/* Descripción del rol seleccionado */}
+              {nuevoUsuario.rol && ROLE_DESCRIPTIONS[nuevoUsuario.rol] && (
+                <div className="admin-rol-desc-selected" style={{ background: ROLE_DESCRIPTIONS[nuevoUsuario.rol].color }}>
+                  <span className="admin-rol-desc-icon">{ROLE_DESCRIPTIONS[nuevoUsuario.rol].icon}</span>
+                  <div>
+                    <strong style={{ color: ROLE_DESCRIPTIONS[nuevoUsuario.rol].textColor }}>{nuevoUsuario.rol}</strong>
+                    <p>{ROLE_DESCRIPTIONS[nuevoUsuario.rol].desc}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Descripción de todos los roles */}
+              <div className="admin-roles-info">
+                <h4>Descripción de roles</h4>
+                <div className="admin-roles-grid">
+                  {ROLES.map(r => (
+                    <div key={r} className="admin-rol-card" style={{ borderColor: ROLE_DESCRIPTIONS[r]?.color }}>
+                      <div className="admin-rol-card-header" style={{ background: ROLE_DESCRIPTIONS[r]?.color }}>
+                        <span>{ROLE_DESCRIPTIONS[r]?.icon}</span>
+                        <span style={{ color: ROLE_DESCRIPTIONS[r]?.textColor, fontWeight: 700 }}>{r}</span>
+                      </div>
+                      <p>{ROLE_DESCRIPTIONS[r]?.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <button className="admin-btn-add admin-btn-crear" onClick={handleCrearUsuario} disabled={savingUsuario}>
                 <MdAdd size={20} /> {savingUsuario ? 'Creando...' : 'Crear usuario'}
               </button>

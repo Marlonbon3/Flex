@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination, Autoplay } from 'swiper/modules'
@@ -15,6 +15,35 @@ import 'swiper/css/navigation'
 import 'swiper/css/pagination'
 import '../styles/home.css'
 
+const AVATAR_COLORS = [
+  '#0A46FF', '#7C3AED', '#DB2777', '#DC2626',
+  '#EA580C', '#D97706', '#16A34A', '#0891B2',
+  '#475569', '#1E293B',
+]
+
+const AVATAR_EMOJIS = [
+  {
+    cat: '🎮 Nintendo',
+    items: ['🍄', '🌿', '⭐', '🐢', '🔥', '🌸', '👑', '🗡️', '🧚', '🦆'],
+  },
+  {
+    cat: '👾 Arcade',
+    items: ['👾', '🕹️', '🎯', '💣', '🏆', '⚡', '💎', '🔮', '🃏', '🎲'],
+  },
+  {
+    cat: '⚔️ Armas',
+    items: ['⚔️', '🗡️', '🛡️', '🏹', '🪃', '🔱', '⚡', '💥', '🔫', '🪖'],
+  },
+  {
+    cat: '🐉 Fantasía',
+    items: ['🐉', '🦄', '🧙', '🧝', '🦊', '🐺', '🦅', '🦁', '🐍', '🦂'],
+  },
+  {
+    cat: '🚀 Sci-Fi',
+    items: ['🚀', '👨‍🚀', '🤖', '👽', '🛸', '🌌', '⚙️', '🔬', '💻', '🛰️'],
+  },
+]
+
 function getInitials(usuario) {
   if (!usuario) return 'U'
   if (usuario.nombre) {
@@ -27,15 +56,60 @@ function getInitials(usuario) {
   return 'U'
 }
 
+function avatarKey(usuario) {
+  return `avatarColor_${usuario?.id || usuario?.email || 'default'}`
+}
+
+function emojiKey(usuario) {
+  return `avatarEmoji_${usuario?.id || usuario?.email || 'default'}`
+}
+
 export default function Home({ tab = 'inicio' }) {
   const navigate = useNavigate()
   const [activeMenu, setActiveMenu] = useState(tab)
   const [menuOpen, setMenuOpen] = useState(false)
   const [usuario] = useState(() => api.obtenerUsuarioActual())
+  const [avatarColor, setAvatarColor] = useState(() =>
+    localStorage.getItem(avatarKey(api.obtenerUsuarioActual())) || '#0A46FF'
+  )
+  const [avatarEmoji, setAvatarEmoji] = useState(() =>
+    localStorage.getItem(emojiKey(api.obtenerUsuarioActual())) || ''
+  )
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerTab, setPickerTab] = useState('color')
+  const [emojiCat, setEmojiCat] = useState(0)
+  const pickerRef = useRef(null)
 
   useEffect(() => {
     setActiveMenu(tab)
   }, [tab])
+
+  useEffect(() => {
+    if (!showPicker) return
+    const handler = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setShowPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPicker])
+
+  const handleSelectColor = (color) => {
+    setAvatarColor(color)
+    localStorage.setItem(avatarKey(usuario), color)
+  }
+
+  const handleSelectEmoji = (emoji) => {
+    setAvatarEmoji(emoji)
+    localStorage.setItem(emojiKey(usuario), emoji)
+    setShowPicker(false)
+  }
+
+  const handleClearEmoji = () => {
+    setAvatarEmoji('')
+    localStorage.removeItem(emojiKey(usuario))
+  }
 
   const handleLogout = () => {
     api.logoutUsuario()
@@ -124,6 +198,17 @@ export default function Home({ tab = 'inicio' }) {
         </nav>
 
         <div className="sidebar-footer">
+          <div className="sidebar-user-card">
+            <div className="sidebar-user-avatar" style={{ background: avatarEmoji ? 'transparent' : avatarColor, fontSize: avatarEmoji ? '22px' : undefined }}>
+              {avatarEmoji || getInitials(usuario)}
+            </div>
+            <div className="sidebar-user-info">
+              <span className="sidebar-user-name">{usuario?.nombre || usuario?.email || 'Usuario'}</span>
+              <span className={`sidebar-rol-badge sidebar-rol-${usuario?.rol?.toLowerCase()}`}>
+                {usuario?.rol || 'Sin rol'}
+              </span>
+            </div>
+          </div>
           <button className="logout-btn" onClick={handleLogout}>
             <MdLogout className="logout-icon" />
             Cerrar sesión
@@ -157,9 +242,98 @@ export default function Home({ tab = 'inicio' }) {
             </div>
           </div>
           <div className="header-right">
-            <button className="user-btn" title={usuario?.nombre || usuario?.email || 'Usuario'}>
-              {getInitials(usuario)}
-            </button>
+            <div className="avatar-wrapper" ref={pickerRef}>
+              <button
+                className="user-btn"
+                style={{ background: avatarEmoji ? 'transparent' : avatarColor, fontSize: avatarEmoji ? '22px' : undefined }}
+                title="Personalizar avatar"
+                onClick={() => setShowPicker(p => !p)}
+              >
+                {avatarEmoji || getInitials(usuario)}
+              </button>
+
+              {showPicker && (
+                <div className="avatar-color-picker">
+                  {/* Tabs */}
+                  <div className="avatar-picker-tabs">
+                    <button
+                      className={`avatar-picker-tab${pickerTab === 'color' ? ' active' : ''}`}
+                      onClick={() => setPickerTab('color')}
+                    >
+                      🎨 Color
+                    </button>
+                    <button
+                      className={`avatar-picker-tab${pickerTab === 'emoji' ? ' active' : ''}`}
+                      onClick={() => setPickerTab('emoji')}
+                    >
+                      👾 Avatar
+                    </button>
+                  </div>
+
+                  {/* Tab: Color */}
+                  {pickerTab === 'color' && (
+                    <>
+                      <p className="avatar-picker-label">Elige tu color</p>
+                      <div className="avatar-color-grid">
+                        {AVATAR_COLORS.map(c => (
+                          <button
+                            key={c}
+                            className={`avatar-color-swatch${avatarColor === c ? ' selected' : ''}`}
+                            style={{ background: c }}
+                            onClick={() => handleSelectColor(c)}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                      <div className="avatar-color-custom">
+                        <label>Personalizado</label>
+                        <input
+                          type="color"
+                          value={avatarColor}
+                          onChange={e => handleSelectColor(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Tab: Emoji */}
+                  {pickerTab === 'emoji' && (
+                    <>
+                      {/* Categorías */}
+                      <div className="emoji-cat-tabs">
+                        {AVATAR_EMOJIS.map((g, i) => (
+                          <button
+                            key={i}
+                            className={`emoji-cat-btn${emojiCat === i ? ' active' : ''}`}
+                            onClick={() => setEmojiCat(i)}
+                            title={g.cat}
+                          >
+                            {g.cat.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="avatar-picker-label">{AVATAR_EMOJIS[emojiCat].cat}</p>
+                      <div className="emoji-grid">
+                        {AVATAR_EMOJIS[emojiCat].items.map((em, i) => (
+                          <button
+                            key={i}
+                            className={`emoji-btn${avatarEmoji === em ? ' selected' : ''}`}
+                            onClick={() => handleSelectEmoji(em)}
+                          >
+                            {em}
+                          </button>
+                        ))}
+                      </div>
+                      {avatarEmoji && (
+                        <button className="emoji-clear-btn" onClick={handleClearEmoji}>
+                          Usar iniciales
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

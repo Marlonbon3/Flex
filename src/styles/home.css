@@ -98,6 +98,75 @@
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #f0f3f7;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f5f7fa;
+  border-radius: 10px;
+  border: 1px solid #e3eaf3;
+}
+
+.sidebar-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #0A46FF;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A1B5B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-rol-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e8eef8;
+  color: #0A1B5B;
+  width: fit-content;
+}
+
+.sidebar-rol-badge.sidebar-rol-admin {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.sidebar-rol-badge.sidebar-rol-supervisor {
+  background: #fef9c3;
+  color: #92400e;
+}
+
+.sidebar-rol-badge.sidebar-rol-operador {
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .logout-btn {
@@ -248,8 +317,181 @@
 }
 
 .user-btn:hover {
-  background: #0533CC;
-  box-shadow: 0 4px 12px rgba(10, 70, 255, 0.3);
+  filter: brightness(0.88);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* ─── Avatar color picker ─── */
+.avatar-wrapper {
+  position: relative;
+}
+
+.avatar-color-picker {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+  padding: 14px 16px;
+  z-index: 9999;
+  min-width: 200px;
+}
+
+.avatar-picker-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.avatar-color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.avatar-color-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.avatar-color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.avatar-color-swatch.selected {
+  border-color: #0f172a;
+  transform: scale(1.15);
+}
+
+.avatar-color-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.avatar-color-custom input[type="color"] {
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+/* ─── Avatar picker tabs ─── */
+.avatar-picker-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.avatar-picker-tab {
+  flex: 1;
+  padding: 5px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.avatar-picker-tab.active {
+  background: #fff;
+  color: #0a46ff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* ─── Emoji category buttons ─── */
+.emoji-cat-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.emoji-cat-btn {
+  padding: 3px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.emoji-cat-btn.active {
+  background: #eef4ff;
+  border-color: #0a46ff;
+}
+
+/* ─── Emoji grid ─── */
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.emoji-btn {
+  font-size: 22px;
+  padding: 5px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+  line-height: 1;
+}
+
+.emoji-btn:hover {
+  background: #eef4ff;
+  transform: scale(1.18);
+}
+
+.emoji-btn.selected {
+  border-color: #0a46ff;
+  background: #eef4ff;
+}
+
+.emoji-clear-btn {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.emoji-clear-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
 }
 
 /* ─── Content Area ─── */
